@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
-from ..services.translation import translate_article, translate_text
+from ..services.translation import translate_article, translate_text_preserving_paragraphs
 
 router = APIRouter(prefix="/articles", tags=["translation"])
 
@@ -30,7 +30,7 @@ def quick_translate(
     if not payload.text.strip():
         raise HTTPException(status_code=400, detail="Text is required")
 
-    translated = translate_text(payload.text)
+    translated = translate_text_preserving_paragraphs(payload.text)
     return QuickTranslateResponse(translated_text=translated)
 
 

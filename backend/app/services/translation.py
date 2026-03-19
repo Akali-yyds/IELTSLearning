@@ -253,3 +253,30 @@ def translate_text(text: str) -> str:
         return ""
 
     return _translate_with_fallback(text, "zh")
+
+
+def translate_text_preserving_paragraphs(text: str) -> str:
+    """
+    快速翻译文本并保留段落结构（按空行分段，逐段翻译后用空行拼接）
+    """
+    if not text.strip():
+        return ""
+
+    paragraphs = split_paragraphs(text)
+    if not paragraphs:
+        return ""
+
+    translated_paragraphs: List[str] = []
+    for para in paragraphs:
+        if len(para) > BAIDU_MAX_PARAGRAPH_LENGTH:
+            sub_paragraphs = _split_long_text(para)
+            sub_translated = []
+            for sub in sub_paragraphs:
+                translated = _translate_with_fallback(sub, "zh")
+                sub_translated.append(translated)
+            translated_paragraphs.append("\n".join(sub_translated))
+        else:
+            translated = _translate_with_fallback(para, "zh")
+            translated_paragraphs.append(translated)
+
+    return "\n\n".join(translated_paragraphs)
