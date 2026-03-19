@@ -20,6 +20,7 @@ export const WordLookupModal = (props: {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const [matchedWord, setMatchedWord] = useState<string | null>(null);
 
   useEffect(() => {
     if (!props.open) return;
@@ -33,11 +34,18 @@ export const WordLookupModal = (props: {
     setError(null);
     setAdded(false);
     apiClient
-      .get<DictionaryEntry>("/dictionary", { params: { word: normalized } })
-      .then((res) => setEntry(res.data))
+      .get<{ raw_word: string; matched_word: string | null; result: DictionaryEntry | null }>("/dictionary/smart", { params: { word: normalized } })
+      .then((res) => {
+        setEntry(res.data.result);
+        setMatchedWord(res.data.matched_word);
+      })
       .catch((err) => {
         console.error(err);
-        setError("查词失败。");
+        if (err.response?.status === 404) {
+          setError("未找到该单词的释义。");
+        } else {
+          setError("查词失败。");
+        }
       })
       .finally(() => setLoading(false));
   }, [props.open, normalized]);
@@ -71,6 +79,9 @@ export const WordLookupModal = (props: {
         <div className="modal-header">
           <div>
             <div className="modal-title">{normalized || props.rawWord}</div>
+            {matchedWord && matchedWord !== normalized && (
+              <div className="modal-subtitle">词根：{matchedWord}</div>
+            )}
             {entry?.phonetic && <div className="modal-subtitle">{entry.phonetic}</div>}
           </div>
           <button className="secondary-btn" onClick={props.onClose}>

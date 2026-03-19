@@ -1,6 +1,8 @@
 import httpx
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
+
+from .lemmatizer import build_lookup_candidates, clean_word
 
 
 @dataclass
@@ -25,27 +27,15 @@ class DictionaryEntry:
     us_phonetic: Optional[str] = None  # 美音音标
     uk_audio: Optional[str] = None  # 英音音频
     us_audio: Optional[str] = None  # 美音音频
-    sentences: List[dict] = None  # 双语例句
-    phrases: List[dict] = None  # 短语
-
-    def __post_init__(self):
-        if self.sentences is None:
-            self.sentences = []
-        if self.phrases is None:
-            self.phrases = []
+    sentences: List[dict] = field(default_factory=list)  # 双语例句
+    phrases: List[dict] = field(default_factory=list)  # 短语
 
 
-def lookup_word(word: str) -> DictionaryEntry:
+def _query_xxapi(word: str) -> Optional[dict]:
     """
-    使用 xxapi 查询单词（支持中英双语）
+    查询 xxapi 词典接口
     """
-    import re
-    clean_word = re.sub(r'[^a-zA-Z\-]', '', word).lower().strip()
-
-    if not clean_word:
-        raise ValueError(f"Invalid word: {word}")
-
-    url = f"https://v2.xxapi.cn/api/englishwords?word={clean_word}"
+    url = f"https://v2.xxapi.cn/api/englishwords?word={word}"
 
     try:
         with httpx.Client(timeout=10.0) as client:
@@ -54,15 +44,7 @@ def lookup_word(word: str) -> DictionaryEntry:
         raise Exception(f"Dictionary API request failed: {str(e)}")
 
     if response.status_code == 404:
-        return DictionaryEntry(
-            word=clean_word,
-            lemma=clean_word,
-            phonetic=None,
-            pronunciation_url=None,
-            meanings=[],
-            synonyms=[],
-            source="xxapi",
-        )
+        return None
 
     if response.status_code != 200:
         raise Exception(f"Dictionary API error: {response.status_code} - {response.text}")
@@ -73,12 +55,17 @@ def lookup_word(word: str) -> DictionaryEntry:
         raise Exception(f"Dictionary API response parse error: {str(e)}")
 
     if not data or data.get("code") != 200:
-        raise Exception(f"Dictionary API returned invalid data: {data}")
+        return None
 
-    entry = data.get("data", {})
+    return data.get("data")
 
+
+def _parse_xxapi_entry(entry: dict, matched_word: str) -> DictionaryEntry:
+    """
+    解析 xxapi 返回的数据
+    """
     # 提取单词
-    word_text = entry.get("word", clean_word)
+    word_text = entry.get("word", matched_word)
 
     # 提取音标
     uk_phonetic = entry.get("ukphone", "")
@@ -144,7 +131,7 @@ def lookup_word(word: str) -> DictionaryEntry:
 
     return DictionaryEntry(
         word=word_text,
-        lemma=word_text,
+        lemma=matched_word,  # 用命中的词根
         phonetic=phonetic,
         pronunciation_url=pronunciation_url,
         meanings=meanings,
@@ -160,33 +147,117 @@ def lookup_word(word: str) -> DictionaryEntry:
     )
 
 
+def lookup_word(word: str) -> DictionaryEntry:
+    """
+    使用 xxapi 查询单词（支持中英双语）
+    直接查询，不做词形还原
+    """
+    import re
+    clean = re.sub(r'[^a-zA-Z\-]', '', word).lower().strip()
+
+    if not clean:
+        raise ValueError(f"Invalid word: {word}")
+
+    entry_data = _query_xxapi(clean)
+
+    if entry_data is None:
+        return DictionaryEntry(
+            word=clean,
+            lemma=clean,
+            phonetic=None,
+            pronunciation_url=None,
+            meanings=[],
+            synonyms=[],
+            source="xxapi",
+        )
+
+    return _parse_xxapi_entry(entry_data, clean)
+
+
+def lookup_word_smart(raw_word: str) -> dict:
+    """
+    智能查词：先词形还原，再依次尝试候选词
+    返回包含原词、命中的词根、和查询结果的字典
+    """
+    if not raw_word:
+        return {
+            "raw_word": raw_word,
+            "normalized": "",
+            "matched_word": None,
+            "result": None,
+        }
+
+    # 获取候选词列表
+    lookup_info = build_lookup_candidates(raw_word)
+    normalized = lookup_info["normalized"]
+    candidates = lookup_info["candidates"]
+
+    if not normalized or not candidates:
+        return {
+            "raw_word": raw_word,
+            "normalized": "",
+            "matched_word": None,
+            "result": None,
+        }
+
+    # 按候选词顺序查询词典
+    for candidate in candidates:
+        try:
+            entry_data = _query_xxapi(candidate)
+            if entry_data:
+                entry = _parse_xxapi_entry(entry_data, candidate)
+                return {
+                    "raw_word": raw_word,
+                    "normalized": normalized,
+                    "matched_word": candidate,  # 命中的词根
+                    "result": _entry_to_dict(entry),
+                }
+        except Exception:
+            continue
+
+    # 所有候选都查不到，返回 None
+    return {
+        "raw_word": raw_word,
+        "normalized": normalized,
+        "matched_word": None,
+        "result": None,
+    }
+
+
 def lookup_word_simple(word: str) -> Optional[dict]:
     """
     简化版查询，返回前端需要的字典结构
     """
     try:
         entry = lookup_word(word)
-        return {
-            "word": entry.word,
-            "phonetic": entry.phonetic,
-            "pronunciation_url": entry.pronunciation_url,
-            # 新增字段
-            "chinese_translation": entry.chinese_translation,
-            "uk_phonetic": entry.uk_phonetic,
-            "us_phonetic": entry.us_phonetic,
-            "uk_audio": entry.uk_audio,
-            "us_audio": entry.us_audio,
-            "meanings": [
-                {
-                    "part_of_speech": m.part_of_speech,
-                    "definitions": m.definitions,
-                    "examples": m.examples or [],
-                }
-                for m in entry.meanings
-            ],
-            "synonyms": entry.synonyms,
-            "sentences": entry.sentences,
-            "phrases": entry.phrases,
-        }
-    except Exception as e:
+        return _entry_to_dict(entry)
+    except Exception:
         return None
+
+
+def _entry_to_dict(entry: DictionaryEntry) -> dict:
+    """
+    将 DictionaryEntry 转为前端需要的字典
+    """
+    return {
+        "word": entry.word,
+        "lemma": entry.lemma,
+        "phonetic": entry.phonetic,
+        "pronunciation_url": entry.pronunciation_url,
+        "chinese_translation": entry.chinese_translation,
+        "uk_phonetic": entry.uk_phonetic,
+        "us_phonetic": entry.us_phonetic,
+        "uk_audio": entry.uk_audio,
+        "us_audio": entry.us_audio,
+        "meanings": [
+            {
+                "part_of_speech": m.part_of_speech,
+                "definitions": m.definitions,
+                "examples": m.examples or [],
+            }
+            for m in entry.meanings
+        ],
+        "synonyms": entry.synonyms,
+        "sentences": entry.sentences,
+        "phrases": entry.phrases,
+    }

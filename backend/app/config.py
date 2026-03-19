@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     refresh_token_expires_days: int = 7
     deepl_api_key: str = ""
     deepl_api_url: str = "https://api-free.deepl.com"
+    # 百度翻译开放平台
+    baidu_appid: str = ""
+    baidu_secret_key: str = ""
 
     class Config:
         env_file = ".env"

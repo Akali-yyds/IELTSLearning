@@ -1,8 +1,32 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from ..services.dictionary import lookup_word
+from ..services.dictionary import lookup_word, lookup_word_smart
 
 router = APIRouter(tags=["dictionary"])
+
+
+@router.get("/dictionary/smart")
+def get_dictionary_entry_smart(word: str = Query(..., min_length=1, max_length=128)):
+    """
+    智能查词：先词形还原，再依次尝试候选词
+    返回原词、命中的词根、和查询结果
+    """
+    if not word.strip():
+        raise HTTPException(status_code=400, detail="word is required")
+
+    result = lookup_word_smart(word)
+    if result["result"] is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": "Word not found",
+                "raw_word": result["raw_word"],
+                "normalized": result["normalized"],
+                "candidates": "词形还原候选词列表",
+            }
+        )
+
+    return result
 
 
 @router.get("/dictionary")

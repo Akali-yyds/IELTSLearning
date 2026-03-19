@@ -6,49 +6,56 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
-from ..services.dictionary import lookup_word
+from ..services.dictionary import lookup_word, lookup_word_smart
 
 router = APIRouter(prefix="/vocabulary", tags=["vocabulary"])
 
 
-# 公开的单词查询端点（不需要登录）
+# 公开的单词查询端点（不需要登录）- 使用智能查词（词形还原）
 @router.get("/lookup")
 def lookup_vocabulary(word: str = Query(..., min_length=1, max_length=128)):
-    """查询单词释义，不需要登录认证"""
+    """查询单词释义，先词形还原再查词典（如 adults -> adult）"""
     if not word.strip():
         raise HTTPException(status_code=400, detail="word is required")
 
-    try:
-        entry = lookup_word(word)
-        return {
-            "word": entry.word,
-            "phonetic": entry.phonetic,
-            # 新增字段
-            "chinese_translation": entry.chinese_translation,
-            "uk_phonetic": entry.uk_phonetic,
-            "us_phonetic": entry.us_phonetic,
-            "uk_audio": entry.uk_audio,
-            "us_audio": entry.us_audio,
-            "meanings": [
-                {
-                    "partOfSpeech": m.part_of_speech,
-                    "definitions": [
-                        {
-                            "definition": d,
-                            "example": "",
-                        }
-                        for d in (m.definitions or [])
-                    ],
-                }
-                for m in entry.meanings
-            ],
-            "synonyms": entry.synonyms,
-            "sentences": entry.sentences,
-            "phrases": entry.phrases,
-        }
-    except Exception as e:
-        print(f"Lookup error: {e}")
+    smart = lookup_word_smart(word)
+    if smart["result"] is None:
+        print(f"Lookup error: no result for word={word}, normalized={smart.get('normalized')}")
         raise HTTPException(status_code=404, detail="Word not found")
+
+    entry = smart["result"]
+    # 返回与原先一致的结构（partOfSpeech + definition/example），便于前端直接使用
+    meanings = entry.get("meanings") or []
+    meanings_out = []
+    for m in meanings:
+        defs_raw = m.get("definitions") or []
+        exs_raw = m.get("examples") or []
+        definitions = [
+            {"definition": d, "example": exs_raw[i] if i < len(exs_raw) else ""}
+            for i, d in enumerate(defs_raw)
+        ]
+        meanings_out.append({
+            "partOfSpeech": m.get("part_of_speech", ""),
+            "definitions": definitions,
+        })
+    out = {
+        "word": entry["word"],
+        "phonetic": entry.get("phonetic"),
+        "chinese_translation": entry.get("chinese_translation"),
+        "uk_phonetic": entry.get("uk_phonetic"),
+        "us_phonetic": entry.get("us_phonetic"),
+        "uk_audio": entry.get("uk_audio"),
+        "us_audio": entry.get("us_audio"),
+        "meanings": meanings_out,
+        "synonyms": entry.get("synonyms") or [],
+        "sentences": entry.get("sentences") or [],
+        "phrases": entry.get("phrases") or [],
+    }
+    # 若命中的是词根，可带给前端展示
+    if smart.get("matched_word") and smart["matched_word"] != smart.get("normalized"):
+        out["matched_word"] = smart["matched_word"]
+        out["raw_word"] = smart.get("raw_word")
+    return out
 
 
 @router.post("/", response_model=schemas.VocabularyRead, status_code=status.HTTP_201_CREATED)
