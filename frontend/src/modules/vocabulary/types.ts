@@ -7,6 +7,7 @@ export interface VocabularyItem {
   pronunciation_url?: string | null;
   source_article_id?: number | null;
   source_sentence?: string | null;
+  notebook_id?: number | null;
   added_at: string;
   familiarity_score: number;
   interval_days: number;
@@ -15,5 +16,14 @@ export interface VocabularyItem {
   lapse_count: number;
   last_review_at?: string | null;
   status: string;
+}
+
+export interface VocabularyNotebook {
+  id: number;
+  name: string;
+  note?: string | null;
+  created_at: string;
+  updated_at: string;
+  word_count: number;
 }
 

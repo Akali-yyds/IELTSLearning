@@ -25,8 +25,37 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     articles = relationship("Article", back_populates="owner")
+    vocabulary_notebooks = relationship("VocabularyNotebook", back_populates="owner")
     vocabulary = relationship("Vocabulary", back_populates="owner")
     review_logs = relationship("ReviewLog", back_populates="owner")
+    settings = relationship("UserSettings", back_populates="user", uselist=False)
+
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    daily_review_target = Column(Integer, default=20, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="settings")
+
+
+class VocabularyNotebook(Base):
+    """词汇本（生词本）"""
+    __tablename__ = "vocabulary_notebooks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(128), nullable=False)
+    note = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    owner = relationship("User", back_populates="vocabulary_notebooks")
+    vocabulary_items = relationship("Vocabulary", back_populates="notebook")
 
 
 class Article(Base):
@@ -37,6 +66,7 @@ class Article(Base):
     title = Column(String(255), nullable=False)
     original_text = Column(Text, nullable=False)
     translated_text = Column(Text, nullable=True)
+    note = Column(Text, nullable=True)
     detected_language = Column(String(32), nullable=True)
     word_count = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -52,6 +82,7 @@ class Vocabulary(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    notebook_id = Column(Integer, ForeignKey("vocabulary_notebooks.id"), nullable=True, index=True)
     word = Column(String(128), nullable=False)
     lemma = Column(String(128), nullable=True)
     phonetic = Column(String(64), nullable=True)
@@ -70,6 +101,7 @@ class Vocabulary(Base):
     status = Column(String(32), default="new", nullable=False)
 
     owner = relationship("User", back_populates="vocabulary")
+    notebook = relationship("VocabularyNotebook", back_populates="vocabulary_items")
     source_article = relationship("Article")
     review_logs = relationship("ReviewLog", back_populates="vocab")
 

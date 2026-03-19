@@ -35,6 +35,7 @@ class TokenPayload(BaseModel):
 class ArticleBase(BaseModel):
     title: str
     original_text: str
+    note: Optional[str] = None
 
 
 class ArticleCreate(ArticleBase):
@@ -66,6 +67,7 @@ class VocabularyBase(BaseModel):
     pronunciation_url: Optional[str] = None
     source_article_id: Optional[int] = None
     source_sentence: Optional[str] = None
+    notebook_id: Optional[int] = None
 
 
 class VocabularyCreate(VocabularyBase):
@@ -86,6 +88,31 @@ class VocabularyRead(VocabularyBase):
 
     class Config:
         from_attributes = True
+
+
+# 词汇本（生词本）Schema
+class VocabularyNotebookBase(BaseModel):
+    name: str
+    note: Optional[str] = None
+
+
+class VocabularyNotebookCreate(VocabularyNotebookBase):
+    pass
+
+
+class VocabularyNotebookRead(VocabularyNotebookBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    word_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class VocabularyNotebookUpdate(BaseModel):
+    name: Optional[str] = None
+    note: Optional[str] = None
 
 
 class ReviewFeedbackRequest(BaseModel):
@@ -113,6 +140,63 @@ class StatsOverview(BaseModel):
     today_review_target: int
     today_review_done: int
     streak_days: int = 0
-    # 可根据后续需要再扩展
+
+
+class RecentArticle(BaseModel):
+    id: int
+    title: str
+    word_count: int
+    updated_at: datetime
+
+
+class DashboardOverview(BaseModel):
+    total_vocab: int
+    mastered_count: int
+    pending_review: int
+    today_review_done: int
+    streak_days: int = 0
+    recent_articles: List[RecentArticle] = []
+
+
+class DailyReviewStat(BaseModel):
+    date: str
+    total: int
+    unknown: int = 0
+    vague: int = 0
+    known: int = 0
+
+
+class StatusCounts(BaseModel):
+    new: int = 0
+    learning: int = 0
+    reviewing: int = 0
+    mastered: int = 0
+
+
+class StatsData(BaseModel):
+    total_vocab: int
+    status_counts: StatusCounts
+    review_stats: List[DailyReviewStat]
+    streak_days: int = 0
+    total_articles: int = 0
+    total_words: int = 0
+
+
+class UserSettingsBase(BaseModel):
+    daily_review_target: int = Field(default=20, ge=5, le=100)
+
+
+class UserSettingsRead(UserSettingsBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class UserSettingsUpdate(BaseModel):
+    daily_review_target: Optional[int] = Field(default=None, ge=5, le=100)
 
 

@@ -119,9 +119,15 @@ def _decode_token(token: str, expected_type: str) -> schemas.TokenPayload:
 
 
 async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    token: Annotated[str | None, Depends(oauth2_scheme)] = None,
     db: Session = Depends(get_db),
 ) -> models.User:
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     token_data = _decode_token(token, expected_type="access")
     user = db.query(models.User).get(int(token_data.sub))
     if user is None:

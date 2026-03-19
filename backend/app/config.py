@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expires_minutes: int = 60
     refresh_token_expires_days: int = 7
+    deepl_api_key: str = ""
+    deepl_api_url: str = "https://api-free.deepl.com"
 
     class Config:
         env_file = ".env"
