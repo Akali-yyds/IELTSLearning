@@ -62,8 +62,15 @@ def translate_with_baidu(text: str, target_lang: str = "zh") -> str:
         "sign": sign,
     }
 
-    with httpx.Client(timeout=30.0) as client:
-        response = client.post(api_url, headers=headers, data=body)
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(api_url, headers=headers, data=body)
+    except Exception as ssl_err:
+        if "SSL" in str(ssl_err) or "EOF" in str(ssl_err):
+            with httpx.Client(timeout=30.0, verify=False) as client:
+                response = client.post(api_url, headers=headers, data=body)
+        else:
+            raise
 
     if response.status_code != 200:
         error_detail = response.text

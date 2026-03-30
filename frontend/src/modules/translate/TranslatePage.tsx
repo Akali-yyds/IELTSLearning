@@ -351,7 +351,7 @@ export const TranslatePage = () => {
   const [sourceText, setSourceText] = useState("");
   const [translatedText, setTranslatedText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [translateTimeoutRef, setTranslateTimeoutRef] = useState<NodeJS.Timeout | null>(null);
+  const [translateTimeoutRef, setTranslateTimeoutRef] = useState<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 单词释义弹窗状态
