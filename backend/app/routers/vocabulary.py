@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
-from ..services.dictionary import lookup_word, lookup_word_smart
+from ..services.dictionary import lookup_word_smart
 
 router = APIRouter(prefix="/vocabulary", tags=["vocabulary"])
 
@@ -100,6 +100,24 @@ def add_to_vocabulary(
         # 如果单词已存在，更新信息（如果有新传入的数据）
         if payload.phonetic:
             existing.phonetic = payload.phonetic
+        if payload.chinese_translation:
+            existing.chinese_translation = payload.chinese_translation
+        if payload.english_definition:
+            existing.english_definition = payload.english_definition
+        if payload.uk_phonetic:
+            existing.uk_phonetic = payload.uk_phonetic
+        if payload.us_phonetic:
+            existing.us_phonetic = payload.us_phonetic
+        if payload.uk_audio:
+            existing.uk_audio = payload.uk_audio
+        if payload.us_audio:
+            existing.us_audio = payload.us_audio
+        if payload.tags is not None:
+            existing.tags = payload.tags
+        if payload.collins is not None:
+            existing.collins = payload.collins
+        if payload.oxford is not None:
+            existing.oxford = payload.oxford
         if payload.meanings_json:
             existing.meanings_json = payload.meanings_json
         if payload.pronunciation_url:
@@ -117,6 +135,15 @@ def add_to_vocabulary(
         word=payload.word,
         lemma=payload.lemma or payload.word.lower(),
         phonetic=payload.phonetic,
+        chinese_translation=payload.chinese_translation,
+        english_definition=payload.english_definition,
+        uk_phonetic=payload.uk_phonetic,
+        us_phonetic=payload.us_phonetic,
+        uk_audio=payload.uk_audio,
+        us_audio=payload.us_audio,
+        tags=payload.tags,
+        collins=payload.collins,
+        oxford=payload.oxford,
         meanings_json=payload.meanings_json,
         pronunciation_url=payload.pronunciation_url,
         source_article_id=payload.source_article_id,

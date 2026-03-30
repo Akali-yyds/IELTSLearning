@@ -3,6 +3,15 @@ export interface VocabularyItem {
   word: string;
   lemma?: string | null;
   phonetic?: string | null;
+  chinese_translation?: string | null;
+  english_definition?: string | null;
+  uk_phonetic?: string | null;
+  us_phonetic?: string | null;
+  uk_audio?: string | null;
+  us_audio?: string | null;
+  tags?: string | null;
+  collins?: number | null;
+  oxford?: boolean | null;
   meanings_json?: string | null;
   pronunciation_url?: string | null;
   source_article_id?: number | null;

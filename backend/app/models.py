@@ -86,7 +86,17 @@ class Vocabulary(Base):
     word = Column(String(128), nullable=False)
     lemma = Column(String(128), nullable=True)
     phonetic = Column(String(64), nullable=True)
-    meanings_json = Column(Text, nullable=True)
+    # ECDICT 扩展字段
+    chinese_translation = Column(Text, nullable=True)
+    english_definition = Column(Text, nullable=True)
+    uk_phonetic = Column(String(64), nullable=True)
+    us_phonetic = Column(String(64), nullable=True)
+    uk_audio = Column(String(512), nullable=True)
+    us_audio = Column(String(512), nullable=True)
+    tags = Column(String(128), nullable=True)       # 空格分隔: "ielts toefl gre"
+    collins = Column(Integer, nullable=True)        # 柯林斯星级 0-5
+    oxford = Column(Boolean, nullable=True)         # 牛津3000
+    meanings_json = Column(Text, nullable=True)     # {meanings, sentences, phrases, synonyms}
     pronunciation_url = Column(String(512), nullable=True)
     source_article_id = Column(Integer, ForeignKey("articles.id"), nullable=True)
     source_sentence = Column(Text, nullable=True)

@@ -93,7 +93,9 @@ def _parse_translation(translation_str: str) -> Tuple[str, list]:
     """
     if not translation_str:
         return "", []
-    lines = [l.strip() for l in translation_str.strip().splitlines() if l.strip()]
+    # ECDICT 使用字面量 \n（反斜杠+n，两个字符）作为分隔符，而非真正的换行符
+    normalized = translation_str.replace("\\n", "\n")
+    lines = [l.strip() for l in normalized.strip().splitlines() if l.strip()]
     meanings = []
     for line in lines:
         m = re.match(r"^([a-z]+\.)?\s*(.+)$", line)
@@ -112,10 +114,11 @@ def _parse_translation(translation_str: str) -> Tuple[str, list]:
 
 
 def _parse_definition(definition_str: str) -> str:
-    """提取英文释义（可能是多行，取前两行）"""
+    """提取英文释义（可能是多行，取前三行）"""
     if not definition_str:
         return ""
-    lines = [l.strip() for l in definition_str.strip().splitlines() if l.strip()]
+    normalized = definition_str.replace("\\n", "\n")
+    lines = [l.strip() for l in normalized.strip().splitlines() if l.strip()]
     return "\n".join(lines[:3])
 
 

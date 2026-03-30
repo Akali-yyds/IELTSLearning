@@ -19,11 +19,18 @@ const WordPopup = ({
   onAddWord: (word: string, notebookId?: number, wordData?: {
     phonetic?: string;
     chinese_translation?: string;
+    english_definition?: string;
     uk_phonetic?: string;
     us_phonetic?: string;
     uk_audio?: string;
     us_audio?: string;
-    meanings_json?: string;
+    tags?: Record<string, boolean>;
+    collins?: number;
+    oxford?: boolean;
+    meanings?: Array<{ partOfSpeech: string; definitions: Array<{ definition: string; example?: string }> }>;
+    sentences?: Array<{ english: string; chinese: string }>;
+    phrases?: Array<{ phrase: string; translation: string }>;
+    synonyms?: string[];
   }) => void;
   notebooks: VocabularyNotebook[];
   selectedNotebookId?: number;
@@ -45,10 +52,26 @@ const WordPopup = ({
     const vh = window.innerHeight;
 
     let left = position.x - rect.width / 2;
-    let top = position.y + 10;
+    let top: number;
 
-    if (top + rect.height > vh - 8) {
-      top = position.y - rect.height - 10;
+    const topBelow = position.y + 10;
+    const topAbove = position.y - rect.height - 10;
+
+    if (topBelow + rect.height <= vh - 8) {
+      // 优先：词语下方
+      top = topBelow;
+    } else if (topAbove >= 8) {
+      // 次选：词语上方
+      top = topAbove;
+    } else {
+      // 兜底：左侧或右侧，竖向居中对齐词语
+      top = Math.max(8, Math.min(vh - rect.height - 8, position.y - rect.height / 2));
+      const rightLeft = position.x + 20;
+      if (rightLeft + rect.width <= vw - 8) {
+        left = rightLeft;
+      } else {
+        left = position.x - rect.width - 20;
+      }
     }
 
     if (left < 8) left = 8;
@@ -164,15 +187,21 @@ const WordPopup = ({
   };
 
   const handleAddWord = () => {
-    // 构造完整的单词数据
     const wordData = meaning ? {
       phonetic: meaning.phonetic,
       chinese_translation: meaning.chinese_translation,
+      english_definition: meaning.english_definition,
       uk_phonetic: meaning.uk_phonetic,
       us_phonetic: meaning.us_phonetic,
       uk_audio: meaning.uk_audio,
       us_audio: meaning.us_audio,
-      meanings_json: JSON.stringify(meaning.meanings),
+      tags: meaning.tags,
+      collins: meaning.collins,
+      oxford: meaning.oxford,
+      meanings: meaning.meanings,
+      sentences: meaning.sentences,
+      phrases: meaning.phrases,
+      synonyms: meaning.synonyms,
     } : undefined;
     onAddWord(word, selectedNotebook === "" ? undefined : selectedNotebook, wordData);
   };
@@ -588,11 +617,18 @@ export const TranslatePage = () => {
     wordData?: {
       phonetic?: string;
       chinese_translation?: string;
+      english_definition?: string;
       uk_phonetic?: string;
       us_phonetic?: string;
       uk_audio?: string;
       us_audio?: string;
-      meanings_json?: string;
+      tags?: Record<string, boolean>;
+      collins?: number;
+      oxford?: boolean;
+      meanings?: Array<{ partOfSpeech: string; definitions: Array<{ definition: string; example?: string }> }>;
+      sentences?: Array<{ english: string; chinese: string }>;
+      phrases?: Array<{ phrase: string; translation: string }>;
+      synonyms?: string[];
     }
   ) => {
     try {
@@ -601,23 +637,34 @@ export const TranslatePage = () => {
         return;
       }
 
-      // 构建完整的 meanings_json
-      const meaningsData = wordData?.meanings_json ? JSON.parse(wordData.meanings_json || "[]") : [];
-      const fullMeaningsJson = JSON.stringify({
-        meanings: meaningsData,
-        chinese_translation: wordData?.chinese_translation,
-        uk_phonetic: wordData?.uk_phonetic,
-        us_phonetic: wordData?.us_phonetic,
-        uk_audio: wordData?.uk_audio,
-        us_audio: wordData?.us_audio,
+      // meanings_json 只存复杂嵌套结构：definitions / sentences / phrases / synonyms
+      const meaningsJson = JSON.stringify({
+        meanings: wordData?.meanings || [],
+        sentences: wordData?.sentences || [],
+        phrases: wordData?.phrases || [],
+        synonyms: wordData?.synonyms || [],
       });
+
+      // tags 转为空格分隔字符串
+      const tagsStr = wordData?.tags
+        ? Object.entries(wordData.tags).filter(([, v]) => v).map(([k]) => k).join(" ")
+        : undefined;
 
       await apiClient.post("/vocabulary", {
         word: word,
         lemma: word.toLowerCase(),
         notebook_id: notebookId,
         phonetic: wordData?.phonetic,
-        meanings_json: fullMeaningsJson,
+        chinese_translation: wordData?.chinese_translation,
+        english_definition: wordData?.english_definition,
+        uk_phonetic: wordData?.uk_phonetic,
+        us_phonetic: wordData?.us_phonetic,
+        uk_audio: wordData?.uk_audio,
+        us_audio: wordData?.us_audio,
+        tags: tagsStr,
+        collins: wordData?.collins,
+        oxford: wordData?.oxford,
+        meanings_json: meaningsJson,
         pronunciation_url: wordData?.uk_audio || wordData?.us_audio,
       });
       setShowWordPopup(false);

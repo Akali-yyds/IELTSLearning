@@ -34,21 +34,18 @@ def get_dictionary_entry(word: str = Query(..., min_length=1, max_length=128)):
     if not word.strip():
         raise HTTPException(status_code=400, detail="word is required")
     entry = lookup_word(word)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Word not found")
     return {
-        "word": entry.word,
-        "lemma": entry.lemma,
-        "phonetic": entry.phonetic,
-        "pronunciation_url": entry.pronunciation_url,
-        "meanings": [
-            {
-                "part_of_speech": m.part_of_speech,
-                "definitions": m.definitions,
-                "examples": m.examples or [],
-            }
-            for m in entry.meanings
-        ],
-        "synonyms": entry.synonyms,
-        "source": entry.source,
+        "word": entry.get("word"),
+        "phonetic": entry.get("phonetic"),
+        "chinese_translation": entry.get("chinese_translation"),
+        "english_definition": entry.get("english_definition"),
+        "meanings": entry.get("meanings") or [],
+        "tags": entry.get("tags") or {},
+        "collins": entry.get("collins"),
+        "oxford": entry.get("oxford"),
+        "source": entry.get("source", "ecdict"),
     }
 
 
@@ -57,10 +54,12 @@ def get_pronunciation(word: str = Query(..., min_length=1, max_length=128)):
     if not word.strip():
         raise HTTPException(status_code=400, detail="word is required")
     entry = lookup_word(word)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Word not found")
     return {
-        "word": entry.word,
-        "pronunciation_url": entry.pronunciation_url,
-        "phonetic": entry.phonetic,
-        "source": entry.source,
+        "word": entry.get("word"),
+        "pronunciation_url": None,
+        "phonetic": entry.get("phonetic"),
+        "source": entry.get("source", "ecdict"),
     }
 

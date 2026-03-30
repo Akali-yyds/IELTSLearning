@@ -63,6 +63,16 @@ class VocabularyBase(BaseModel):
     word: str
     lemma: Optional[str] = None
     phonetic: Optional[str] = None
+    # ECDICT 扩展字段
+    chinese_translation: Optional[str] = None
+    english_definition: Optional[str] = None
+    uk_phonetic: Optional[str] = None
+    us_phonetic: Optional[str] = None
+    uk_audio: Optional[str] = None
+    us_audio: Optional[str] = None
+    tags: Optional[str] = None
+    collins: Optional[int] = None
+    oxford: Optional[bool] = None
     meanings_json: Optional[str] = None
     pronunciation_url: Optional[str] = None
     source_article_id: Optional[int] = None

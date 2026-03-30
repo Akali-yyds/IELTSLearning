@@ -1408,6 +1408,77 @@ textarea:focus {
   opacity: 0.7;
 }
 
+/* 生词详情页 - 中文释义区块 */
+.vocab-block-zh {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border-radius: 8px;
+}
+.vocab-block-zh-label {
+  font-size: 12px;
+  color: #fbbf24;
+  margin-bottom: 4px;
+}
+.vocab-block-zh-text {
+  font-size: 15px;
+  color: #e2e8f0;
+}
+[data-theme="light"] .vocab-block-zh-text { color: #1e293b; }
+
+/* 生词详情页 - 英文释义区块 */
+.vocab-block-en {
+  margin-top: 10px;
+  padding: 10px;
+  background: rgba(56, 189, 248, 0.06);
+  border-radius: 8px;
+}
+.vocab-block-en-label {
+  font-size: 12px;
+  color: #38bdf8;
+  margin-bottom: 6px;
+}
+.vocab-block-en-line {
+  font-size: 13px;
+  color: #cbd5e1;
+  padding: 2px 0;
+  line-height: 1.5;
+}
+[data-theme="light"] .vocab-block-en-line { color: #334155; }
+[data-theme="light"] .vocab-block-en { background: rgba(56, 189, 248, 0.06); }
+
+/* 生词详情页 - 例句/短语行 */
+.vocab-row {
+  padding: 8px 0;
+  border-bottom: 1px solid #1f2937;
+}
+[data-theme="light"] .vocab-row { border-bottom-color: #e2e8f0; }
+
+.vocab-row-en {
+  color: #e2e8f0;
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+[data-theme="light"] .vocab-row-en { color: #1e293b; }
+
+.vocab-row-zh {
+  color: #9ca3af;
+  font-size: 13px;
+}
+[data-theme="light"] .vocab-row-zh { color: #64748b; }
+
+.vocab-phrase-term {
+  color: #38bdf8;
+}
+[data-theme="light"] .vocab-phrase-term { color: #0369a1; }
+
+.vocab-section-label {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+[data-theme="light"] .vocab-section-label { color: #64748b; }
+
 /* 单词弹窗 - 中文释义 */
 .word-popup-chinese {
   font-size: 14px;
