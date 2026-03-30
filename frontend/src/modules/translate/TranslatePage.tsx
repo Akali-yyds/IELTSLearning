@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiClient } from "../../shared/apiClient";
 import { VocabularyNotebook } from "../vocabulary/types";
@@ -29,6 +29,38 @@ const WordPopup = ({
   selectedNotebookId?: number;
   onNotebookChange: (id: number | "") => void;
 }) => {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [computedStyle, setComputedStyle] = useState<React.CSSProperties>({
+    left: position.x,
+    top: position.y,
+    visibility: "hidden",
+    transform: "translateX(-50%)",
+  });
+
+  useLayoutEffect(() => {
+    if (!popupRef.current) return;
+    const rect = popupRef.current.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    let left = position.x - rect.width / 2;
+    let top = position.y + 10;
+
+    if (top + rect.height > vh - 8) {
+      top = position.y - rect.height - 10;
+    }
+
+    if (left < 8) left = 8;
+    if (left + rect.width > vw - 8) left = vw - rect.width - 8;
+
+    setComputedStyle({
+      left,
+      top,
+      visibility: "visible",
+      transform: "none",
+    });
+  }, [position]);
+
   const [meaning, setMeaning] = useState<{
     word?: string;
     phonetic?: string;
@@ -111,11 +143,9 @@ const WordPopup = ({
 
   return (
     <div
+      ref={popupRef}
       className="word-popup"
-      style={{
-        left: position.x,
-        top: position.y,
-      }}
+      style={computedStyle}
     >
       <div className="word-popup-header">
         <span className="word-popup-word">{meaning?.word || word}</span>
