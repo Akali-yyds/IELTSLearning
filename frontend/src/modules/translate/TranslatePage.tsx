@@ -36,6 +36,7 @@ const WordPopup = ({
     visibility: "hidden",
     transform: "translateX(-50%)",
   });
+  const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
     if (!popupRef.current) return;
@@ -59,12 +60,13 @@ const WordPopup = ({
       visibility: "visible",
       transform: "none",
     });
-  }, [position]);
+  }, [position, loading]);
 
   const [meaning, setMeaning] = useState<{
     word?: string;
     phonetic?: string;
     chinese_translation?: string;
+    english_definition?: string;
     uk_phonetic?: string;
     us_phonetic?: string;
     uk_audio?: string;
@@ -73,8 +75,24 @@ const WordPopup = ({
     synonyms?: string[];
     sentences?: Array<{ english: string; chinese: string }>;
     phrases?: Array<{ phrase: string; translation: string }>;
+    tags?: Record<string, boolean>;
+    collins?: number;
+    oxford?: boolean;
+    bnc?: number;
+    frq?: number;
+    source?: string;
+    base_form?: {
+      word: string;
+      uk_phonetic?: string;
+      us_phonetic?: string;
+      uk_audio?: string;
+      us_audio?: string;
+      chinese_translation?: string;
+      sentences?: Array<{ english: string; chinese: string }>;
+      phrases?: Array<{ phrase: string; translation: string }>;
+      synonyms?: string[];
+    };
   } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedNotebook, setSelectedNotebook] = useState<number | "">("");
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -95,6 +113,7 @@ const WordPopup = ({
           word?: string;
           phonetic?: string;
           chinese_translation?: string;
+          english_definition?: string;
           uk_phonetic?: string;
           us_phonetic?: string;
           uk_audio?: string;
@@ -103,6 +122,23 @@ const WordPopup = ({
           synonyms?: string[];
           sentences?: Array<{ english: string; chinese: string }>;
           phrases?: Array<{ phrase: string; translation: string }>;
+          tags?: Record<string, boolean>;
+          collins?: number;
+          oxford?: boolean;
+          bnc?: number;
+          frq?: number;
+          source?: string;
+          base_form?: {
+            word: string;
+            uk_phonetic?: string;
+            us_phonetic?: string;
+            uk_audio?: string;
+            us_audio?: string;
+            chinese_translation?: string;
+            sentences?: Array<{ english: string; chinese: string }>;
+            phrases?: Array<{ phrase: string; translation: string }>;
+            synonyms?: string[];
+          };
         }>(`/vocabulary/lookup?word=${encodeURIComponent(word)}`);
         setMeaning(res.data);
       } catch (err) {
@@ -148,7 +184,22 @@ const WordPopup = ({
       style={computedStyle}
     >
       <div className="word-popup-header">
-        <span className="word-popup-word">{meaning?.word || word}</span>
+        <div className="word-popup-header-left">
+          <span className="word-popup-word">{meaning?.word || word}</span>
+          {meaning && (
+            <div className="word-popup-badges">
+              {meaning.tags?.ielts && <span className="word-badge badge-ielts">IELTS</span>}
+              {meaning.tags?.toefl && <span className="word-badge badge-toefl">TOEFL</span>}
+              {meaning.tags?.gre   && <span className="word-badge badge-gre">GRE</span>}
+              {meaning.oxford && <span className="word-badge badge-oxford">Oxford</span>}
+              {(meaning.collins ?? 0) > 0 && (
+                <span className="word-badge badge-collins" title={`柯林斯 ${meaning.collins} 星`}>
+                  {'★'.repeat(meaning.collins ?? 0)}{'☆'.repeat(5 - (meaning.collins ?? 0))}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
         <button className="word-popup-close" onClick={onClose}>
           ×
         </button>
@@ -239,6 +290,73 @@ const WordPopup = ({
                     <span key={i} className="synonym-tag">{syn}</span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* 原型词根（来自 xxapi，仅变形词时出现）*/}
+            {meaning.base_form && (
+              <div className="word-popup-section word-popup-base-form">
+                <div className="word-popup-section-title">原型</div>
+                <div className="word-popup-base-word-row">
+                  <span className="word-popup-base-word">{meaning.base_form.word}</span>
+                  <div className="word-popup-phonetics">
+                    {meaning.base_form.uk_phonetic && (
+                      <span
+                        className="phonetic-item"
+                        onClick={() => meaning.base_form?.uk_audio && playAudio(meaning.base_form.uk_audio)}
+                      >
+                        <span className="phonetic-label">英</span>
+                        <span className="phonetic-text">{meaning.base_form.uk_phonetic}</span>
+                        {meaning.base_form.uk_audio && <span className="phonetic-audio">🔊</span>}
+                      </span>
+                    )}
+                    {meaning.base_form.us_phonetic && (
+                      <span
+                        className="phonetic-item"
+                        onClick={() => meaning.base_form?.us_audio && playAudio(meaning.base_form.us_audio)}
+                      >
+                        <span className="phonetic-label">美</span>
+                        <span className="phonetic-text">{meaning.base_form.us_phonetic}</span>
+                        {meaning.base_form.us_audio && <span className="phonetic-audio">🔊</span>}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {meaning.base_form.chinese_translation && (
+                  <div className="word-popup-chinese">{meaning.base_form.chinese_translation}</div>
+                )}
+                {meaning.base_form.phrases && meaning.base_form.phrases.length > 0 && (
+                  <div className="word-popup-section" style={{ marginTop: 6, paddingTop: 6 }}>
+                    <div className="word-popup-section-title">短语</div>
+                    {meaning.base_form.phrases.slice(0, 3).map((p, i) => (
+                      <div key={i} className="word-popup-phrase">
+                        <span className="phrase-content">{p.phrase}</span>
+                        <span className="phrase-translation">{p.translation}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {meaning.base_form.sentences && meaning.base_form.sentences.length > 0 && (
+                  <div className="word-popup-section" style={{ marginTop: 6, paddingTop: 6 }}>
+                    <div className="word-popup-section-title">例句</div>
+                    {meaning.base_form.sentences.slice(0, 2).map((s, i) => (
+                      <div key={i} className="word-popup-sentence">
+                        <div className="sentence-english">{s.english}</div>
+                        <div className="sentence-chinese">{s.chinese}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {meaning.base_form.synonyms && meaning.base_form.synonyms.length > 0 && (
+                  <div className="word-popup-section" style={{ marginTop: 6, paddingTop: 6 }}>
+                    <div className="word-popup-section-title">同义词</div>
+                    <div className="word-popup-synonyms">
+                      {meaning.base_form.synonyms.slice(0, 5).map((syn, i) => (
+                        <span key={i} className="synonym-tag">{syn}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>

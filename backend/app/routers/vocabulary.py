@@ -42,6 +42,7 @@ def lookup_vocabulary(word: str = Query(..., min_length=1, max_length=128)):
         "word": entry["word"],
         "phonetic": entry.get("phonetic"),
         "chinese_translation": entry.get("chinese_translation"),
+        "english_definition": entry.get("english_definition"),
         "uk_phonetic": entry.get("uk_phonetic"),
         "us_phonetic": entry.get("us_phonetic"),
         "uk_audio": entry.get("uk_audio"),
@@ -50,6 +51,14 @@ def lookup_vocabulary(word: str = Query(..., min_length=1, max_length=128)):
         "synonyms": entry.get("synonyms") or [],
         "sentences": entry.get("sentences") or [],
         "phrases": entry.get("phrases") or [],
+        # ECDICT 扩展字段
+        "tags": entry.get("tags") or {},
+        "collins": entry.get("collins") or 0,
+        "oxford": entry.get("oxford") or False,
+        "bnc": entry.get("bnc"),
+        "frq": entry.get("frq"),
+        "source": entry.get("source", ""),
+        "base_form": entry.get("base_form"),
     }
     # 若命中的是词根，可带给前端展示
     if smart.get("matched_word") and smart["matched_word"] != smart.get("normalized"):

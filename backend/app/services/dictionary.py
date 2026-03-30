@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from .lemmatizer import build_lookup_candidates, clean_word
+from . import ecdict as ecdict_svc
 
 
 @dataclass
@@ -174,33 +175,123 @@ def lookup_word(word: str) -> DictionaryEntry:
     return _parse_xxapi_entry(entry_data, clean)
 
 
+def _xxapi_supplement(word: str) -> dict:
+    """
+    从 xxapi 获取补充信息（音频、例句、短语、同义词）
+    word 应为词根形式
+    """
+    try:
+        entry_data = _query_xxapi(word)
+        if not entry_data:
+            return {}
+        e = _parse_xxapi_entry(entry_data, word)
+        return {
+            "uk_phonetic": e.uk_phonetic,
+            "us_phonetic": e.us_phonetic,
+            "uk_audio": e.uk_audio,
+            "us_audio": e.us_audio,
+            "chinese_translation": e.chinese_translation,
+            "sentences": e.sentences,
+            "phrases": e.phrases,
+            "synonyms": e.synonyms,
+        }
+    except Exception:
+        return {}
+
+
+def _xxapi_supplement_smart(word: str, exchange: dict) -> tuple:
+    """
+    智能补充：优先用 ECDICT exchange 链条找词根，再用候选列表兜底。
+    返回 (base_word, supplement_dict)，base_word 是实际命中 xxapi 的单词。
+
+    查找顺序：
+      1. exchange["lemma"]（ECDICT 直接标注的词根，如 stop / encourage）
+      2. build_lookup_candidates 的候选列表（NLTK + 后缀规则，短词优先）
+      3. 原词本身（最后兜底）
+    """
+    # 1. 走 exchange 链条
+    lemma = exchange.get("lemma")
+    if lemma:
+        result = _xxapi_supplement(lemma)
+        if result.get("uk_audio") or result.get("us_audio") or result.get("sentences"):
+            return lemma, result
+
+    # 2. 走候选列表（NLTK + 后缀规则）
+    candidates = build_lookup_candidates(word).get("candidates", [])
+    for candidate in candidates:
+        if candidate == word:
+            continue
+        result = _xxapi_supplement(candidate)
+        if result.get("uk_audio") or result.get("us_audio") or result.get("sentences"):
+            return candidate, result
+
+    # 3. 原词兜底
+    return word, _xxapi_supplement(word)
+
+
 def lookup_word_smart(raw_word: str) -> dict:
     """
-    智能查词：先词形还原，再依次尝试候选词
-    返回包含原词、命中的词根、和查询结果的字典
+    智能查词：ECDICT 主词典 + xxapi 补充音频/例句/短语
+
+    ECDICT 路径（推荐）：
+      直接用清洗后的词查询，ECDICT 已收录所有变形（ed/ing/ly/比较级等），无需词形还原。
+
+    xxapi 回退路径（仅 ECDICT 不可用时）：
+      走 NLTK + 后缀规则的候选列表，逐一尝试 xxapi。
     """
     if not raw_word:
-        return {
-            "raw_word": raw_word,
-            "normalized": "",
-            "matched_word": None,
-            "result": None,
-        }
+        return {"raw_word": raw_word, "normalized": "", "matched_word": None, "result": None}
 
-    # 获取候选词列表
+    normalized = clean_word(raw_word)
+    if not normalized:
+        return {"raw_word": raw_word, "normalized": "", "matched_word": None, "result": None}
+
+    # ── ECDICT：直接查，无需词形还原 ──────────────────────
+    if ecdict_svc.is_available():
+        ecdict_result = ecdict_svc.query_smart(normalized)
+        if ecdict_result:
+            matched = ecdict_result.get("matched_word", normalized)
+            exchange = ecdict_result.get("exchange", {})
+            base_word, supplement = _xxapi_supplement_smart(matched, exchange)
+
+            if base_word == matched:
+                # 同一个词：音频/例句直接合并
+                if supplement.get("uk_audio") or supplement.get("us_audio"):
+                    ecdict_result["uk_phonetic"] = supplement.get("uk_phonetic") or ecdict_result.get("uk_phonetic")
+                    ecdict_result["us_phonetic"] = supplement.get("us_phonetic") or ecdict_result.get("us_phonetic")
+                    ecdict_result["uk_audio"] = supplement.get("uk_audio")
+                    ecdict_result["us_audio"] = supplement.get("us_audio")
+                if supplement.get("sentences"):
+                    ecdict_result["sentences"] = supplement["sentences"]
+                if supplement.get("phrases"):
+                    ecdict_result["phrases"] = supplement["phrases"]
+                if supplement.get("synonyms"):
+                    ecdict_result["synonyms"] = supplement["synonyms"]
+            else:
+                # 不同词（如 encouragingly → encourage）：
+                # 不覆盖当前词的音标，将词根数据放入独立的 base_form 字段
+                ecdict_result["base_form"] = {
+                    "word": base_word,
+                    "uk_phonetic": supplement.get("uk_phonetic"),
+                    "us_phonetic": supplement.get("us_phonetic"),
+                    "uk_audio": supplement.get("uk_audio"),
+                    "us_audio": supplement.get("us_audio"),
+                    "chinese_translation": supplement.get("chinese_translation"),
+                    "sentences": supplement.get("sentences") or [],
+                    "phrases": supplement.get("phrases") or [],
+                    "synonyms": supplement.get("synonyms") or [],
+                }
+
+            return {
+                "raw_word": raw_word,
+                "normalized": normalized,
+                "matched_word": matched,
+                "result": ecdict_result,
+            }
+
+    # ── xxapi 回退：ECDICT 不可用时才走词形还原 ────────────
     lookup_info = build_lookup_candidates(raw_word)
-    normalized = lookup_info["normalized"]
-    candidates = lookup_info["candidates"]
-
-    if not normalized or not candidates:
-        return {
-            "raw_word": raw_word,
-            "normalized": "",
-            "matched_word": None,
-            "result": None,
-        }
-
-    # 按候选词顺序查询词典
+    candidates = lookup_info.get("candidates", [normalized])
     for candidate in candidates:
         try:
             entry_data = _query_xxapi(candidate)
@@ -209,19 +300,13 @@ def lookup_word_smart(raw_word: str) -> dict:
                 return {
                     "raw_word": raw_word,
                     "normalized": normalized,
-                    "matched_word": candidate,  # 命中的词根
+                    "matched_word": candidate,
                     "result": _entry_to_dict(entry),
                 }
         except Exception:
             continue
 
-    # 所有候选都查不到，返回 None
-    return {
-        "raw_word": raw_word,
-        "normalized": normalized,
-        "matched_word": None,
-        "result": None,
-    }
+    return {"raw_word": raw_word, "normalized": normalized, "matched_word": None, "result": None}
 
 
 def lookup_word_simple(word: str) -> Optional[dict]:

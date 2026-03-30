@@ -1134,18 +1134,84 @@ textarea:focus {
   font-size: 13px;
 }
 
+/* 单词弹窗 - header 左侧布局 */
+.word-popup-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.word-popup-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.word-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.badge-ielts {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.badge-toefl {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.badge-gre {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.badge-oxford {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.badge-collins {
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Light theme badge overrides */
+[data-theme="light"] .badge-ielts  { background: rgba(56, 189, 248, 0.1);  color: #0284c7; border-color: rgba(56, 189, 248, 0.3); }
+[data-theme="light"] .badge-toefl  { background: rgba(99, 102, 241, 0.1);  color: #4f46e5; border-color: rgba(99, 102, 241, 0.3); }
+[data-theme="light"] .badge-gre    { background: rgba(168, 85, 247, 0.1);  color: #7c3aed; border-color: rgba(168, 85, 247, 0.3); }
+[data-theme="light"] .badge-oxford { background: rgba(34, 197, 94, 0.1);   color: #16a34a; border-color: rgba(34, 197, 94, 0.3); }
+[data-theme="light"] .badge-collins{ background: rgba(251, 191, 36, 0.1);  color: #b45309; border-color: rgba(251, 191, 36, 0.3); }
+
 /* 单词释义弹窗 */
 .word-popup {
   position: fixed;
   z-index: 100;
   width: 320px;
-  max-height: 400px;
+  min-height: 360px;
+  max-height: min(90vh, 580px);
   background: rgba(15, 23, 42, 0.98);
   border: 1px solid #374151;
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   transform: translate(-50%, 10px);
+  display: flex;
+  flex-direction: column;
 }
 
 .word-popup-header {
@@ -1179,7 +1245,8 @@ textarea:focus {
 
 .word-popup-body {
   padding: 12px 16px;
-  max-height: 250px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -1255,6 +1322,7 @@ textarea:focus {
 .word-popup-add-section {
   padding: 12px 16px;
   border-top: 1px solid #1f2937;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1407,6 +1475,41 @@ textarea:focus {
 .sentence-chinese {
   font-size: 12px;
   color: #9ca3af;
+}
+
+/* 原型词根区块 */
+.word-popup-base-form {
+  border-top: 1px dashed #374151;
+  background: rgba(56, 189, 248, 0.04);
+  border-radius: 6px;
+  padding: 8px 0 4px;
+}
+
+.word-popup-base-word-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.word-popup-base-word {
+  font-size: 15px;
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.word-popup-base-sentences {
+  margin-top: 4px;
+}
+
+[data-theme="light"] .word-popup-base-form {
+  border-top-color: #d5cfc7;
+  background: rgba(56, 189, 248, 0.04);
+}
+
+[data-theme="light"] .word-popup-base-word {
+  color: #0284c7;
 }
 
 /* 同义词 */

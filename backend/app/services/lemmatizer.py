@@ -181,6 +181,25 @@ def suffix_fallback(word: str) -> List[str]:
     if word.endswith("s") and not word.endswith("ss") and len(word) > 3:
         candidates.append(word[:-1])
 
+    # -ingly -> -ing (encouragingly -> encouraging, surprisingly -> surprising)
+    # build_lookup_candidates 会对 -ing 结果再做 NLTK 还原 -> encourage
+    if word.endswith("ingly") and len(word) > 7:
+        candidates.append(word[:-2])  # 去掉 "ly"
+
+    # -ily -> -y (happily -> happy, easily -> easy, angrily -> angry)
+    if word.endswith("ily") and len(word) > 5:
+        candidates.append(word[:-3] + "y")
+
+    # -ly -> 去 -ly (quickly -> quick, slowly -> slow)
+    # 排除 -ily / -ingly，且长度 > 6 避免 only/early 误匹配
+    if (
+        word.endswith("ly")
+        and not word.endswith("ily")
+        and not word.endswith("ingly")
+        and len(word) > 6
+    ):
+        candidates.append(word[:-2])
+
     return candidates
 
 
