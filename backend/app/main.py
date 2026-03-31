@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from . import auth, models, schemas
 from .database import Base, engine, get_db
 from .routers import articles, dictionary, reviews, dashboard, settings, vocabulary
-from .routers.translation import router_translation
+from .routers.translation import router as translation_router, router_translation
 
 app = FastAPI(title="IELTSLearning API")
 
@@ -25,6 +25,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(articles.router)
+app.include_router(translation_router)
 app.include_router(router_translation)
 app.include_router(dictionary.router)
 app.include_router(vocabulary.router)
