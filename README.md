@@ -1,299 +1,243 @@
-## IELTSLearning 项目说明
-
-IELTSLearning 是一个面向英语学习者的 Web 应用，核心能力包括：
-
-- 文章精读与全文翻译
-- 划词 / 双击查词与发音
-- 生词本与遗忘曲线复习
-- 学习统计与目标设置
-
-当前由 Agent 按 `TODOlist.txt` 中的规划分阶段实现。
-
-### 技术栈
-
-| 层级 | 技术 |
-|------|------|
-| **后端** | FastAPI + SQLAlchemy + PostgreSQL |
-| **前端** | React + TypeScript + Vite |
-| **认证** | JWT + Refresh Token |
-| **词典** | Free Dictionary API |
-| **翻译** | DeepL API（可配置） |
-| **发音** | 词典 API + 浏览器 Web Speech API |
-
-### 目录结构
-
-```
-IELTSLearning/
-├── backend/                    # 后端服务（FastAPI）
-│   ├── app/
-│   │   ├── routers/           # API 路由模块
-│   │   │   ├── auth.py        # 认证（注册/登录/刷新Token）
-│   │   │   ├── articles.py    # 文章 CRUD
-│   │   │   ├── dictionary.py  # 查词服务
-│   │   │   ├── vocabulary.py  # 生词本
-│   │   │   ├── reviews.py     # 复习系统
-│   │   │   ├── dashboard.py   # 首页统计
-│   │   │   ├── settings.py    # 用户设置
-│   │   │   └── translation.py # 翻译服务
-│   │   ├── services/          # 业务逻辑层
-│   │   │   ├── review.py      # 遗忘曲线算法（SM-2）
-│   │   │   ├── dictionary.py  # 字典服务封装
-│   │   │   └── translation.py # 翻译服务封装
-│   │   ├── models.py          # SQLAlchemy 模型
-│   │   ├── schemas.py         # Pydantic 数据校验
-│   │   ├── auth.py            # JWT 鉴权
-│   │   ├── database.py        # 数据库连接
-│   │   └── config.py          # 配置管理
-│   ├── migrations/            # Alembic 数据库迁移
-│   └── requirements.txt       # Python 依赖
-│
-├── frontend/                   # 前端应用（React + TS）
-│   ├── src/
-│   │   ├── modules/          # 页面模块
-│   │   │   ├── auth/         # 登录/注册
-│   │   │   ├── dashboard/    # 首页
-│   │   │   ├── articles/     # 文章列表/编辑
-│   │   │   ├── translate/    # 翻译页面
-│   │   │   ├── vocabulary/   # 生词本/生词详情
-│   │   │   ├── reviews/      # 今日复习
-│   │   │   ├── space/        # 我的空间
-│   │   │   ├── stats/        # 学习统计
-│   │   │   ├── settings/     # 用户设置
-│   │   │   └── dictionary/   # 查词弹窗
-│   │   ├── App.tsx           # 应用入口
-│   │   └── styles.css        # 全局样式
-│   └── package.json          # Node 依赖
-│
-├── TODOlist.txt              # 需求与任务拆解
-└── README.md                 # 项目说明
-```
-
----
-
-## 系统架构
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                         Frontend (React)                      │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌────────┐ │
-│  │ Dashboard│ │ Articles│ │Translat.│ │Vocabulary│ │ Reviews│ │
-│  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬───┘ │
-│       └───────────┴───────────┴───────────┴───────────┘    │
-│                            │                                  │
-│                      Vite Proxy / API                        │
-└────────────────────────────┼────────────────────────────────┘
-                             │ HTTP + JWT
-┌────────────────────────────┼────────────────────────────────┐
-│                     Backend (FastAPI)                        │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐         │
-│  │  Auth    │ │ Articles │ │ Dictionary│ │Vocabulary│         │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘         │
-│       └────────────┴────────────┴─────────────┘              │
-│                            │                                  │
-│                    SQLAlchemy ORM                             │
-└────────────────────────────┼────────────────────────────────┘
-                             │
-┌────────────────────────────┼────────────────────────────────┐
-│                   PostgreSQL Database                        │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌──────────┐    │
-│  │ Users  │ │Articles │ │Vocabulary│ │ReviewLogs│ │DailyTasks│ │
-│  └────────┘ └────────┘ └────────┘ └────────┘ └──────────┘    │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 数据库模型
-
-### 核心数据表
-
-| 表名 | 说明 | 关键字段 |
-|------|------|----------|
-| `users` | 用户表 | email, hashed_password, is_active |
-| `user_settings` | 用户设置 | daily_review_target |
-| `articles` | 文章 | title, original_text, translated_text, word_count |
-| `vocabulary_notebooks` | 词汇本 | name, note |
-| `vocabulary` | 生词 | word, lemma, phonetic, meanings_json, **SM-2 字段** |
-| `review_logs` | 复习记录 | feedback, previous/new_familiarity, previous/new_interval |
-| `daily_review_tasks` | 每日任务快照 | task_date, vocab_ids |
-
-### SM-2 遗忘曲线字段（vocabulary 表）
-
-- `familiarity_score`: 熟练度分数（0-100）
-- `ease_factor`: 难度因子（默认 250）
-- `interval_days`: 复习间隔天数
-- `next_review_at`: 下次复习日期
-- `status`: 单词状态（new / learning / reviewing / mastered）
-
----
-
-## 当前开发进展
-
-### 已完成功能
-
-#### Phase 1: 项目初始化 ✅
-- 前后端项目结构搭建
-- PostgreSQL 数据库配置
-- Alembic 数据库迁移
-- 环境变量管理
-
-#### Phase 2: 用户系统 ✅
-- 用户注册 / 登录
-- JWT 鉴权
-- Refresh Token 续签
-
-#### Phase 3: 文章精读模块 ✅
-- 文章 CRUD（创建、读取、更新、删除）
-- 全文翻译服务
-- 双击单词查词（弹窗显示释义、音标、发音）
-- 发音功能（TTS）
-
-#### Phase 4: 生词本模块 ✅
-- 查词结果加入生词本
-- 生词本列表页
-- 生词详情页
-- 防重复加词
-
-#### Phase 5: 复习系统 ✅
-- 遗忘曲线算法（SM-2 简化版）
-- 每日任务生成
-- 复习交互流程（认识/模糊/不认识）
-- 复习进度记录
-
-#### Phase 6: 页面与信息架构 ✅
-- 首页 Dashboard（快捷入口、统计概览、今日进度）
-- 翻译页面（左右分栏、实时翻译、存为文章）
-- 我的空间（复习进度、学习统计、快捷功能）
-- 用户设置页面
-
-### 页面清单
-
-| 页面 | 路由 | 说明 |
-|------|------|------|
-| 登录页 | `/login` | 用户登录 |
-| 注册页 | `/register` | 用户注册 |
-| 首页 | `/` | 快捷入口、统计概览 |
-| 翻译 | `/translate` | 左右分栏实时翻译 |
-| 文章列表 | `/articles` | 已保存的文章列表 |
-| 文章编辑 | `/articles/new`, `/articles/:id` | 添加/编辑文章 |
-| 生词本 | `/vocabulary` | 生词本列表 |
-| 生词详情 | `/vocabulary/:id` | 生词详情 |
-| 我的空间 | `/space` | 复习进度、统计概览 |
-| 今日复习 | `/space/reviews` | 每日复习任务 |
-| 学习统计 | `/space/stats` | 详细统计数据 |
-| 用户设置 | `/space/settings` | 每日复习目标设置 |
-
----
-
-## 后端运行方式
-
-1. 创建并配置数据库（PostgreSQL），设置环境变量：
-
-   - `DATABASE_URL`，例如：`postgresql+psycopg2://user:password@localhost:5432/ielts_learning`
-   - `JWT_SECRET_KEY`：JWT 密钥
-
-2. 安装依赖：
-
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
-
-3. 初始化数据库迁移：
-
-   ```bash
-   cd backend
-   alembic upgrade head
-   ```
-
-4. 运行开发服务器：
-
-   ```bash
-   cd backend
-   uvicorn app.main:app --reload
-   ```
-
-5. 访问 `http://localhost:8000/docs` 查看 Swagger API 文档。
-
----
-
-## 前端运行方式
-
-1. 安装依赖：
-
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-2. 配置后端地址（可选，默认 `http://localhost:8000`）：
-
-   在 `frontend/` 下创建 `.env`：
-   ```
-   VITE_API_BASE_URL=http://localhost:8000
-   ```
-
-3. 启动开发服务器：
-
-   ```bash
-   cd frontend
-   npm run dev
-   ```
-
-4. 浏览器打开 `http://localhost:5173`。
-
----
-
-## 核心 API 概览
-
-### 认证
-- `POST /auth/register` - 注册
-- `POST /auth/login` - 登录
-- `POST /auth/refresh` - 刷新 Token
-
-### 文章
-- `POST /articles` - 创建文章
-- `GET /articles` - 文章列表
-- `GET /articles/:id` - 文章详情
-- `PUT /articles/:id` - 更新文章
-- `DELETE /articles/:id` - 删除文章
-- `POST /articles/:id/translate` - 翻译文章
-
-### 翻译
-- `POST /translation/quick` - 快速翻译（不保存）
-
-### 字典
-- `GET /dictionary?word=xxx` - 查词
-
-### 生词本
-- `POST /vocabulary` - 加入生词本
-- `GET /vocabulary` - 生词本列表
-- `GET /vocabulary/:id` - 生词详情
-- `DELETE /vocabulary/:id` - 删除生词
-
-### 复习
-- `GET /reviews/today` - 今日任务
-- `POST /reviews/:vocabId/submit` - 提交复习结果
-
-### Dashboard & 统计
-- `GET /dashboard/overview` - 首页概览数据
-- `GET /dashboard/stats` - 学习统计数据
-
-### 设置
-- `GET /settings` - 获取用户设置
-- `PUT /settings` - 更新用户设置
-
----
-
-## 下一步计划
-
-- [ ] 移动端适配
-- [ ] 深色模式优化
-- [ ] 测试覆盖
-- [ ] 生产环境部署
-
----
-
 # IELTSLearning
 
-Learning IELTS makes me happy.
+面向雅思备考场景的英语学习与词汇管理平台。
+
+---
+
+## 项目简介
+
+IELTSLearning 是一个面向英语学习者的 Web 应用，聚焦文章精读、词汇积累与记忆复习三个核心场景。  
+用户可以在平台中导入或粘贴英语文章，通过双击查词将生词加入生词本，并由系统根据遗忘曲线自动安排每日复习计划。  
+项目适用于有系统性词汇积累需求的个人学习者，尤其针对雅思、托福等标准化考试备考场景。
+
+---
+
+## 项目背景 / 目标
+
+在英语学习过程中，词汇积累、文章阅读与记忆复习往往分散在多个工具中，难以形成闭环。  
+本项目希望将"读文章 → 查生词 → 加生词本 → 定期复习"整合为一套连贯的学习流程，避免工具切换带来的中断。  
+项目目标是提供一个轻量、自托管的学习工具，让用户在阅读真实语料的同时完成词汇积累，并依靠 SM-2 算法的间隔复习降低遗忘率。
+
+---
+
+## 功能特性
+
+- 支持文章录入、全文机器翻译与保存管理
+- 支持双击单词弹窗查词，展示音标、中英文释义、词性、考试标注（雅思/托福/GRE）
+- 支持将查词结果一键加入生词本，自动去重并记录词根形式
+- 支持基于 SM-2 遗忘曲线的每日复习任务自动生成与调度
+- 支持复习反馈（认识 / 模糊 / 不认识）驱动熟练度与复习间隔动态调整
+- 支持学习统计数据展示，包括每日复习数、生词总量、掌握比例
+- 支持用户注册登录、JWT 鉴权与每日复习目标自定义配置
+
+---
+
+## 项目演示
+
+当前版本暂未提供公开在线演示，可通过本地部署方式体验完整功能。
+
+### 核心使用流程
+
+1. 注册并登录系统
+2. 在翻译页面粘贴英语文章，触发机器翻译或保存为文章
+3. 在文章精读页双击单词，弹窗查看释义后加入生词本
+4. 进入"今日复习"完成每日词汇复习任务
+5. 在统计页面查看学习进度与生词掌握情况
+
+---
+
+## 技术栈
+
+### 前端
+
+- React 18 + TypeScript
+- Vite
+- React Router
+
+### 后端
+
+- Python 3.11+
+- FastAPI
+- SQLAlchemy + Alembic
+
+### 数据存储
+
+- PostgreSQL（主数据库）
+- ECDICT（本地 SQLite 离线词典，含 90 万词条）
+
+### 外部服务
+
+- DeepL API（文章翻译，可选）
+
+### 认证
+
+- JWT + Refresh Token
+
+---
+
+## 项目结构
+
+```text
+IELTSLearning/
+├── backend/                # 后端服务（FastAPI）
+│   ├── app/
+│   │   ├── routers/        # API 路由模块
+│   │   ├── services/       # 业务逻辑层（词典、翻译、复习算法）
+│   │   ├── models.py       # SQLAlchemy 数据模型
+│   │   ├── schemas.py      # Pydantic 数据校验
+│   │   ├── auth.py         # JWT 鉴权
+│   │   ├── database.py     # 数据库连接
+│   │   └── config.py       # 配置管理
+│   ├── migrations/         # Alembic 数据库迁移脚本
+│   ├── data/               # ECDICT 本地词典文件（stardict.db）
+│   └── requirements.txt
+│
+├── frontend/               # 前端应用（React + TypeScript）
+│   ├── src/
+│   │   ├── modules/        # 页面模块（auth / dashboard / translate / vocabulary / reviews 等）
+│   │   ├── shared/         # 公共组件与工具
+│   │   ├── App.tsx
+│   │   └── styles.css
+│   └── package.json
+│
+└── README.md
+```
+
+- `backend/app/routers/`：各功能模块的 HTTP 路由（认证、文章、词典、生词本、复习、统计、设置）
+- `backend/app/services/`：核心业务逻辑，包括 ECDICT 查词、DeepL 翻译封装、SM-2 复习调度
+- `frontend/src/modules/`：按页面功能拆分的 React 模块，各自包含页面组件与本地状态
+
+---
+
+## 环境要求
+
+- Node.js >= 18.0
+- Python >= 3.11
+- PostgreSQL >= 14
+- ECDICT 词典文件（`backend/data/stardict.db`，需单独下载，见下方说明）
+
+---
+
+## 安装步骤
+
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/your-name/IELTSLearning.git
+cd IELTSLearning
+```
+
+### 2. 配置后端环境
+
+```bash
+cd backend
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS / Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
+```
+
+### 3. 配置前端环境
+
+```bash
+cd ../frontend
+npm install
+```
+
+### 4. 准备环境变量
+
+在 `backend/` 目录下创建 `.env` 文件：
+
+```env
+DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/ielts_learning
+JWT_SECRET_KEY=your-secret-key-here
+DEEPL_API_KEY=your-deepl-key        # 可选，不填则翻译功能不可用
+```
+
+在 `frontend/` 目录下创建 `.env` 文件（可选，默认指向本地后端）：
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
+
+### 5. 初始化数据库
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+### 6. 下载 ECDICT 词典
+
+ECDICT 词典文件（`stardict.db`）需单独获取并放置在 `backend/data/` 目录下。  
+可从 [ECDICT 项目](https://github.com/skywind3000/ECDICT) 下载 CSV 后使用项目内脚本转换，或直接下载已构建的 SQLite 文件。  
+若词典文件缺失，查词功能将不可用，其余功能不受影响。
+
+---
+
+## 快速开始
+
+### 启动后端服务
+
+```bash
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 启动前端服务
+
+```bash
+cd frontend
+npm run dev
+```
+
+### 访问地址
+
+- 前端：`http://localhost:5173`
+- 后端 API：`http://localhost:8000`
+- 接口文档（Swagger）：`http://localhost:8000/docs`
+
+---
+
+## 使用说明
+
+### 普通用户使用流程
+
+1. 注册并登录系统
+2. 进入**翻译**页面，粘贴英语文章，点击"翻译"获取中文对照
+3. 点击"保存文章"将文章存入文章库，后续可在**文章**页面重新打开精读
+4. 在文章精读或翻译页面**双击任意单词**，弹窗展示释义、音标与词典信息，确认后点击"加入生词本"
+5. 进入**生词本**查看已收录词汇，点击单词查看详情（中英文释义、例句、短语、标签）
+6. 进入**今日复习**完成系统每日推送的复习任务，根据实际掌握程度选择"认识 / 模糊 / 不认识"
+7. 在**统计**页面查看累计学习数据
+
+### 生词本说明
+
+- 双击查词后可选择加入哪个生词本（默认为"默认生词本"）
+- 同一单词在同一生词本内不会重复添加
+- 词典数据来自 ECDICT 本地词典，包含 IELTS / TOEFL / GRE / Oxford / Collins 标注
+
+### 复习机制说明
+
+复习系统采用 **SM-2 简化版**遗忘曲线算法：
+
+- 新词首次加入后次日进入复习队列
+- 每次复习根据反馈（认识 / 模糊 / 不认识）调整下次复习间隔
+- 熟练度达到阈值后单词状态升级为"mastered"，复习频率降低
+
+---
+
+## 配置说明
+
+| 配置项 | 是否必填 | 示例值 | 说明 |
+|---|---|---|---|
+| `DATABASE_URL` | 是 | `postgresql+psycopg2://user:pass@localhost:5432/ielts` | PostgreSQL 连接字符串 |
+| `JWT_SECRET_KEY` | 是 | `your-random-secret` | JWT 签名密钥，建议使用随机长字符串 |
+| `DEEPL_API_KEY` | 否 | `your-deepl-key` | DeepL 翻译 API 密钥，不填则翻译功能不可用 |
+| `VITE_API_BASE_URL` | 否 | `http://localhost:8000` | 前端指向的后端地址，默认为本地 8000 端口 |
+
+- 不要将真实密钥提交到版本控制系统
+- `JWT_SECRET_KEY` 建议使用 `openssl rand -hex 32` 生成
