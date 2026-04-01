@@ -73,6 +73,8 @@ class VocabularyBase(BaseModel):
     tags: Optional[str] = None
     collins: Optional[int] = None
     oxford: Optional[bool] = None
+    bnc: Optional[int] = None
+    frq: Optional[int] = None
     meanings_json: Optional[str] = None
     pronunciation_url: Optional[str] = None
     source_article_id: Optional[int] = None
@@ -98,6 +100,15 @@ class VocabularyRead(VocabularyBase):
 
     class Config:
         from_attributes = True
+
+
+class VocabularyPronunciationRead(BaseModel):
+    word: str
+    phonetic: Optional[str] = None
+    uk_phonetic: Optional[str] = None
+    us_phonetic: Optional[str] = None
+    uk_audio: Optional[str] = None
+    us_audio: Optional[str] = None
 
 
 # 词汇本（生词本）Schema
@@ -208,5 +219,4 @@ class UserSettingsRead(UserSettingsBase):
 
 class UserSettingsUpdate(BaseModel):
     daily_review_target: Optional[int] = Field(default=None, ge=5, le=100)
-
 

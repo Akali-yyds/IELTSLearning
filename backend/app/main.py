@@ -1,8 +1,10 @@
 import logging
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from . import auth, models, schemas
@@ -15,12 +17,21 @@ app = FastAPI(title="IELTSLearning API")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ieltslearning")
 
+generated_audio_dir = Path(__file__).resolve().parents[1] / "data" / "generated_audio"
+generated_audio_dir.mkdir(parents=True, exist_ok=True)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.mount(
+    "/generated-audio",
+    StaticFiles(directory=str(generated_audio_dir)),
+    name="generated-audio",
 )
 
 app.include_router(auth.router)

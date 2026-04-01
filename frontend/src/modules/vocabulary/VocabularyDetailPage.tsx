@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { apiClient } from "../../shared/apiClient";
+import { apiClient, resolveApiUrl } from "../../shared/apiClient";
 import { VocabularyItem } from "./types";
 
 function tryParseMeaningsJson(json?: string | null): {
@@ -68,7 +68,7 @@ export const VocabularyDetailPage = () => {
 
   const playAudio = (audioUrl?: string | null) => {
     if (!audioUrl) return;
-    new Audio(audioUrl).play();
+    new Audio(resolveApiUrl(audioUrl)).play();
   };
 
   // 兼容 ECDICT 旧数据：字面量 \n（反斜杠+n）→ 可读分隔符
@@ -90,7 +90,12 @@ export const VocabularyDetailPage = () => {
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>生词详情</h1>
+        <div className="page-header-left">
+          <button className="secondary-btn" onClick={() => navigate("/vocabulary")}>
+            ← 返回
+          </button>
+          <h1>生词详情</h1>
+        </div>
         <button className="danger-btn" onClick={handleDelete}>
           删除
         </button>
@@ -138,7 +143,12 @@ export const VocabularyDetailPage = () => {
                   </span>
                 )}
                 {!item.uk_phonetic && !item.us_phonetic && item.phonetic && <span>{item.phonetic} </span>}
-                ｜状态：{item.status}｜熟练度：{item.familiarity_score}｜复习次数：{item.review_count}
+                <span>｜状态：{item.status}</span>
+                <span>｜熟练度：{item.familiarity_score}</span>
+                <span>｜复习：{item.review_count}次</span>
+                {(item.bnc != null || item.frq != null) && (
+                  <span>｜BNC:{item.bnc ?? "-"} FRQ:{item.frq ?? "-"}</span>
+                )}
               </div>
             </div>
             <button className="secondary-btn" onClick={() => navigate("/vocabulary")}>
@@ -229,4 +239,3 @@ export const VocabularyDetailPage = () => {
     </div>
   );
 };
-

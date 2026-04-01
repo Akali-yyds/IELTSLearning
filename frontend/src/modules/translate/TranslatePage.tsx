@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiClient } from "../../shared/apiClient";
+import { apiClient, resolveApiUrl } from "../../shared/apiClient";
 import { VocabularyNotebook } from "../vocabulary/types";
 
 // 单词释义弹窗组件
@@ -119,6 +119,8 @@ const WordPopup = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedNotebook, setSelectedNotebook] = useState<number | "">("");
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [examplesLoading, setExamplesLoading] = useState(false);
 
   // 初始化时使用外部传入的值
   useEffect(() => {
@@ -128,9 +130,13 @@ const WordPopup = ({
   }, [selectedNotebookId]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchMeaning = async () => {
       setLoading(true);
       setError(null);
+      setAudioLoading(false);
+      setExamplesLoading(false);
       try {
         const res = await apiClient.get<{
           word?: string;
@@ -151,6 +157,8 @@ const WordPopup = ({
           bnc?: number;
           frq?: number;
           source?: string;
+          matched_word?: string;
+          raw_word?: string;
           base_form?: {
             word: string;
             uk_phonetic?: string;
@@ -163,27 +171,149 @@ const WordPopup = ({
             synonyms?: string[];
           };
         }>(`/vocabulary/lookup?word=${encodeURIComponent(word)}`);
+        if (cancelled) return;
+
         setMeaning(res.data);
+        if (!cancelled) {
+          setLoading(false);
+        }
+
+        const lookupWord = res.data.word || word;
+        const lookupLemma = res.data.matched_word || lookupWord;
+
+        setAudioLoading(true);
+        setExamplesLoading(true);
+        await Promise.allSettled([
+          (async () => {
+            try {
+              const pronunciationRes = await apiClient.get<{
+                phonetic?: string;
+                uk_phonetic?: string;
+                us_phonetic?: string;
+                uk_audio?: string;
+                us_audio?: string;
+              }>("/vocabulary/lookup/pronunciation", {
+                params: {
+                  word,
+                  lemma: lookupLemma,
+                },
+              });
+              if (cancelled) return;
+              setMeaning((prev) => (
+                prev
+                  ? {
+                      ...prev,
+                      phonetic: pronunciationRes.data.phonetic || prev.phonetic,
+                      uk_phonetic: pronunciationRes.data.uk_phonetic || prev.uk_phonetic,
+                      us_phonetic: pronunciationRes.data.us_phonetic || prev.us_phonetic,
+                      uk_audio: pronunciationRes.data.uk_audio || prev.uk_audio,
+                      us_audio: pronunciationRes.data.us_audio || prev.us_audio,
+                    }
+                  : prev
+              ));
+            } catch (audioErr) {
+              console.error(audioErr);
+            } finally {
+              if (!cancelled) {
+                setAudioLoading(false);
+              }
+            }
+          })(),
+          (async () => {
+            try {
+              const examplesRes = await apiClient.get<{
+                sentences?: Array<{ english: string; chinese: string }>;
+              }>("/vocabulary/lookup/examples", {
+                params: {
+                  word: lookupWord,
+                  lemma: lookupLemma,
+                },
+              });
+              if (cancelled) return;
+              setMeaning((prev) => (
+                prev
+                  ? {
+                      ...prev,
+                      sentences: examplesRes.data.sentences || prev.sentences,
+                    }
+                  : prev
+              ));
+            } catch (examplesErr) {
+              console.error(examplesErr);
+            } finally {
+              if (!cancelled) {
+                setExamplesLoading(false);
+              }
+            }
+          })(),
+        ]);
       } catch (err) {
         console.error(err);
+        if (cancelled) {
+          return;
+        }
         setError("无法获取释义");
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     if (word.trim()) {
       fetchMeaning();
     }
+    return () => {
+      cancelled = true;
+    };
   }, [word]);
 
   const playAudio = (audioUrl: string) => {
     if (audioPlaying) return;
     setAudioPlaying(true);
-    const audio = new Audio(audioUrl);
+    const audio = new Audio(resolveApiUrl(audioUrl));
     audio.onended = () => setAudioPlaying(false);
     audio.onerror = () => setAudioPlaying(false);
     audio.play();
+  };
+
+  const renderPhoneticItem = (
+    label: string,
+    phonetic?: string,
+    audioUrl?: string
+  ) => {
+    if (!phonetic) return null;
+
+    return (
+      <div className="phonetic-item">
+        <span className="phonetic-label">{label}</span>
+        <span className="phonetic-text">{phonetic}</span>
+        <button
+          type="button"
+          className="phonetic-play-btn"
+          onClick={() => audioUrl && playAudio(audioUrl)}
+          disabled={!audioUrl || audioPlaying || audioLoading}
+          data-loading={audioLoading ? "true" : "false"}
+          title={
+            audioLoading
+              ? `${label}式发音加载中`
+              : audioUrl
+                ? `播放${label}式发音`
+                : `${label}式发音暂不可用`
+          }
+          aria-label={
+            audioLoading
+              ? `${label}式发音加载中`
+              : audioUrl
+                ? `播放${label}式发音`
+                : `${label}式发音暂不可用`
+          }
+        >
+          {audioLoading && <span className="phonetic-play-spinner" aria-hidden="true" />}
+          <span className="phonetic-audio">{audioLoading ? "…" : "▶"}</span>
+        </button>
+      </div>
+    );
   };
 
   const handleAddWord = () => {
@@ -240,26 +370,10 @@ const WordPopup = ({
           <>
             {/* 音标和发音 */}
             <div className="word-popup-phonetic-row">
-              {(meaning.uk_phonetic || meaning.us_phonetic) && (
+              {(meaning.uk_phonetic || meaning.us_phonetic || meaning.phonetic) && (
                 <div className="word-popup-phonetics">
-                  {meaning.uk_phonetic && (
-                    <span className="phonetic-item" onClick={() => meaning.uk_audio && playAudio(meaning.uk_audio)}>
-                      <span className="phonetic-label">英</span>
-                      <span className="phonetic-text">{meaning.uk_phonetic}</span>
-                      {meaning.uk_audio && (
-                        <span className="phonetic-audio">🔊</span>
-                      )}
-                    </span>
-                  )}
-                  {meaning.us_phonetic && (
-                    <span className="phonetic-item" onClick={() => meaning.us_audio && playAudio(meaning.us_audio)}>
-                      <span className="phonetic-label">美</span>
-                      <span className="phonetic-text">{meaning.us_phonetic}</span>
-                      {meaning.us_audio && (
-                        <span className="phonetic-audio">🔊</span>
-                      )}
-                    </span>
-                  )}
+                  {renderPhoneticItem("英", meaning.uk_phonetic || meaning.phonetic, meaning.uk_audio)}
+                  {renderPhoneticItem("美", meaning.us_phonetic || meaning.phonetic, meaning.us_audio)}
                 </div>
               )}
             </div>
@@ -298,15 +412,19 @@ const WordPopup = ({
             )}
 
             {/* 双语例句 */}
-            {meaning.sentences && meaning.sentences.length > 0 && (
+            {(examplesLoading || (meaning.sentences && meaning.sentences.length > 0)) && (
               <div className="word-popup-section">
                 <div className="word-popup-section-title">例句</div>
-                {meaning.sentences.slice(0, 2).map((s, i) => (
-                  <div key={i} className="word-popup-sentence">
-                    <div className="sentence-english">{s.english}</div>
-                    <div className="sentence-chinese">{s.chinese}</div>
-                  </div>
-                ))}
+                {meaning.sentences && meaning.sentences.length > 0 ? (
+                  meaning.sentences.slice(0, 2).map((s, i) => (
+                    <div key={i} className="word-popup-sentence">
+                      <div className="sentence-english">{s.english}</div>
+                      <div className="sentence-chinese">{s.chinese}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="word-popup-section-loading">例句加载中...</div>
+                )}
               </div>
             )}
 
@@ -329,26 +447,8 @@ const WordPopup = ({
                 <div className="word-popup-base-word-row">
                   <span className="word-popup-base-word">{meaning.base_form.word}</span>
                   <div className="word-popup-phonetics">
-                    {meaning.base_form.uk_phonetic && (
-                      <span
-                        className="phonetic-item"
-                        onClick={() => meaning.base_form?.uk_audio && playAudio(meaning.base_form.uk_audio)}
-                      >
-                        <span className="phonetic-label">英</span>
-                        <span className="phonetic-text">{meaning.base_form.uk_phonetic}</span>
-                        {meaning.base_form.uk_audio && <span className="phonetic-audio">🔊</span>}
-                      </span>
-                    )}
-                    {meaning.base_form.us_phonetic && (
-                      <span
-                        className="phonetic-item"
-                        onClick={() => meaning.base_form?.us_audio && playAudio(meaning.base_form.us_audio)}
-                      >
-                        <span className="phonetic-label">美</span>
-                        <span className="phonetic-text">{meaning.base_form.us_phonetic}</span>
-                        {meaning.base_form.us_audio && <span className="phonetic-audio">🔊</span>}
-                      </span>
-                    )}
+                    {renderPhoneticItem("英", meaning.base_form.uk_phonetic, meaning.base_form.uk_audio)}
+                    {renderPhoneticItem("美", meaning.base_form.us_phonetic, meaning.base_form.us_audio)}
                   </div>
                 </div>
                 {meaning.base_form.chinese_translation && (

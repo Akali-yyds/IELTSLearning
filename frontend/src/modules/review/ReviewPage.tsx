@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { apiClient } from "../../shared/apiClient";
+import { apiClient, resolveApiUrl } from "../../shared/apiClient";
 import { VocabularyNotebook } from "../vocabulary/types";
 
 interface ReviewWord {
@@ -8,6 +8,16 @@ interface ReviewWord {
   word: string;
   lemma: string;
   phonetic: string | null;
+  chinese_translation?: string | null;
+  uk_phonetic?: string | null;
+  us_phonetic?: string | null;
+  uk_audio?: string | null;
+  us_audio?: string | null;
+  tags?: string | null;
+  collins?: number | null;
+  oxford?: boolean | null;
+  bnc?: number | null;
+  frq?: number | null;
   meanings_json: string | null;
   familiarity_score: number;
   ease_factor: number;
@@ -21,8 +31,11 @@ interface WordExtraInfo {
   chinese_translation?: string;
   uk_phonetic?: string;
   us_phonetic?: string;
-  uk_audio?: string;
-  us_audio?: string;
+  tags?: Record<string, boolean>;
+  collins?: number;
+  oxford?: boolean;
+  bnc?: number;
+  frq?: number;
   sentences?: Array<{ english: string; chinese: string }>;
   phrases?: Array<{ phrase: string; translation: string }>;
   synonyms?: string[];
@@ -82,26 +95,14 @@ export const ReviewPage = () => {
 
   const currentWord = reviewWords[currentIndex];
 
-  // 播放发音
-  const playAudio = (audioUrl?: string) => {
-    if (!audioUrl || audioPlaying) return;
-    setAudioPlaying(true);
-    const audio = new Audio(audioUrl);
-    audio.onended = () => setAudioPlaying(false);
-    audio.onerror = () => setAudioPlaying(false);
-    audio.play();
-  };
-
   // 解析 meanings_json
   const getExtraInfo = (): WordExtraInfo | null => {
     if (!currentWord?.meanings_json) return null;
     try {
       const parsed = JSON.parse(currentWord.meanings_json);
-      // 检查是否是新的扩展格式
       if (parsed.meanings || parsed.chinese_translation || parsed.uk_phonetic) {
         return parsed;
       }
-      // 旧的简单格式
       return null;
     } catch {
       return null;
@@ -109,6 +110,15 @@ export const ReviewPage = () => {
   };
 
   const extraInfo = getExtraInfo();
+
+  const playAudio = (audioUrl?: string | null) => {
+    if (!audioUrl || audioPlaying) return;
+    setAudioPlaying(true);
+    const audio = new Audio(resolveApiUrl(audioUrl));
+    audio.onended = () => setAudioPlaying(false);
+    audio.onerror = () => setAudioPlaying(false);
+    audio.play();
+  };
 
   const handleFeedback = async (feedback: "again" | "hard" | "good" | "easy") => {
     if (!currentWord || submitting) return;
@@ -119,12 +129,10 @@ export const ReviewPage = () => {
         feedback,
       });
 
-      // 移到下一个单词
       if (currentIndex < reviewWords.length - 1) {
         setCurrentIndex(currentIndex + 1);
         setShowAnswer(false);
       } else {
-        // 复习完成，重新加载
         const res = await apiClient.get<ReviewWord[]>(
           `/vocabulary/notebooks/${selectedNotebookId}/review`
         );
@@ -189,10 +197,12 @@ export const ReviewPage = () => {
     return (
       <div className="page-container">
         <div className="page-header">
-          <button className="secondary-btn" onClick={() => setSelectedNotebookId(null)}>
-            ← 返回
-          </button>
-          <h1>记单词</h1>
+          <div className="page-header-left">
+            <button className="secondary-btn" onClick={() => setSelectedNotebookId(null)}>
+              ← 返回
+            </button>
+            <h1>记单词</h1>
+          </div>
         </div>
         <div className="review-complete">
           <div className="review-complete-icon">🎉</div>
@@ -209,16 +219,45 @@ export const ReviewPage = () => {
     );
   }
 
-  // 获取发音链接
-  const audioUrl = extraInfo?.uk_audio || extraInfo?.us_audio;
+  // 从 extraInfo 或 word 字段提取标签
+  const tagList: Array<{ label: string; cls: string }> = [];
+  if (extraInfo?.tags) {
+    if (extraInfo.tags.ielts) tagList.push({ label: "IELTS", cls: "badge-ielts" });
+    if (extraInfo.tags.toefl) tagList.push({ label: "TOEFL", cls: "badge-toefl" });
+    if (extraInfo.tags.gre) tagList.push({ label: "GRE", cls: "badge-gre" });
+    if (extraInfo.tags.cet4) tagList.push({ label: "CET4", cls: "badge-cet4" });
+    if (extraInfo.tags.cet6) tagList.push({ label: "CET6", cls: "badge-cet6" });
+  }
+  if (currentWord?.tags) {
+    const currentTags = currentWord.tags.split(" ").filter(Boolean);
+    if (currentTags.includes("ielts") && !tagList.some((t) => t.label === "IELTS")) tagList.push({ label: "IELTS", cls: "badge-ielts" });
+    if (currentTags.includes("toefl") && !tagList.some((t) => t.label === "TOEFL")) tagList.push({ label: "TOEFL", cls: "badge-toefl" });
+    if (currentTags.includes("gre") && !tagList.some((t) => t.label === "GRE")) tagList.push({ label: "GRE", cls: "badge-gre" });
+    if (currentTags.includes("cet4") && !tagList.some((t) => t.label === "CET4")) tagList.push({ label: "CET4", cls: "badge-cet4" });
+    if (currentTags.includes("cet6") && !tagList.some((t) => t.label === "CET6")) tagList.push({ label: "CET6", cls: "badge-cet6" });
+  }
+  if (currentWord?.oxford && !tagList.some((t) => t.label === "Oxford")) {
+    tagList.push({ label: "Oxford", cls: "badge-oxford" });
+  }
+  if (currentWord?.collins && !tagList.some((t) => t.cls === "badge-collins")) {
+    tagList.push({ label: `${"★".repeat(currentWord.collins)}`, cls: "badge-collins" });
+  }
+  if (extraInfo?.oxford) {
+    tagList.push({ label: "Oxford", cls: "badge-oxford" });
+  }
+  if (extraInfo?.collins) {
+    tagList.push({ label: `${"★".repeat(extraInfo.collins)}`, cls: "badge-collins" });
+  }
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <button className="secondary-btn" onClick={() => setSelectedNotebookId(null)}>
-          ← 返回
-        </button>
-        <h1>记单词</h1>
+        <div className="page-header-left">
+          <button className="secondary-btn" onClick={() => setSelectedNotebookId(null)}>
+            ← 返回
+          </button>
+          <h1>记单词</h1>
+        </div>
         <div className="review-progress">
           {currentIndex + 1} / {reviewWords.length}
         </div>
@@ -234,26 +273,37 @@ export const ReviewPage = () => {
 
       {/* 单词卡片 */}
       <div className="review-card">
+        {/* 单词 */}
         <div className="review-word-row">
           <div className="review-word">{currentWord.word}</div>
-          {/* 发音按钮 */}
-          {audioUrl && (
+          {(currentWord.uk_audio || currentWord.us_audio) && (
             <button
+              type="button"
               className="review-audio-btn"
-              onClick={() => playAudio(audioUrl)}
+              onClick={() => playAudio(currentWord.uk_audio || currentWord.us_audio)}
               disabled={audioPlaying}
+              title="播放发音"
             >
-              {audioPlaying ? "🔊" : "🔈"}
+              {audioPlaying ? "…" : "▶"}
             </button>
           )}
         </div>
 
+        {/* 标签行 */}
+        {tagList.length > 0 && (
+          <div className="review-badges">
+            {tagList.map((t, i) => (
+              <span key={i} className={`word-badge ${t.cls}`}>{t.label}</span>
+            ))}
+          </div>
+        )}
+
         {/* 显示音标 */}
         {(extraInfo?.uk_phonetic || extraInfo?.us_phonetic || currentWord.phonetic) && (
           <div className="review-phonetic">
-            {extraInfo?.uk_phonetic && <span style={{ marginRight: 12 }}>英 {extraInfo.uk_phonetic}</span>}
-            {extraInfo?.us_phonetic && <span>美 {extraInfo.us_phonetic}</span>}
-            {!extraInfo?.uk_phonetic && !extraInfo?.us_phonetic && currentWord.phonetic}
+            {(extraInfo?.uk_phonetic || currentWord.uk_phonetic) && <span style={{ marginRight: 12 }}>英 {extraInfo?.uk_phonetic || currentWord.uk_phonetic}</span>}
+            {(extraInfo?.us_phonetic || currentWord.us_phonetic) && <span>美 {extraInfo?.us_phonetic || currentWord.us_phonetic}</span>}
+            {!extraInfo?.uk_phonetic && !extraInfo?.us_phonetic && !currentWord.uk_phonetic && !currentWord.us_phonetic && currentWord.phonetic}
           </div>
         )}
 
@@ -264,16 +314,16 @@ export const ReviewPage = () => {
         ) : (
           <div className="review-answer">
             {/* 中文释义 */}
-            {extraInfo?.chinese_translation && (
-              <div className="review-chinese">{extraInfo.chinese_translation}</div>
+            {(extraInfo?.chinese_translation || currentWord.chinese_translation) && (
+              <div className="review-chinese">{extraInfo?.chinese_translation || currentWord.chinese_translation}</div>
             )}
 
-            {/* 英文释义 */}
+            {/* 词义列表 */}
             {extraInfo?.meanings && extraInfo.meanings.length > 0 && (
               <div className="review-meanings">
                 {extraInfo.meanings.map((m: any, i: number) => (
                   <div key={i} className="review-meaning-item">
-                    <span className="review-pos">{m.partOfSpeech}</span>
+                    <span className="review-pos">{m.partOfSpeech || m.part_of_speech}</span>
                     <span className="review-def">{m.definitions?.[0]?.definition || m.definitions?.[0] || ""}</span>
                   </div>
                 ))}

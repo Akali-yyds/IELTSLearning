@@ -96,6 +96,8 @@ class Vocabulary(Base):
     tags = Column(String(128), nullable=True)       # 空格分隔: "ielts toefl gre"
     collins = Column(Integer, nullable=True)        # 柯林斯星级 0-5
     oxford = Column(Boolean, nullable=True)         # 牛津3000
+    bnc = Column(Integer, nullable=True)           # BNC 词频排名
+    frq = Column(Integer, nullable=True)           # FRQ 词频排名
     meanings_json = Column(Text, nullable=True)     # {meanings, sentences, phrases, synonyms}
     pronunciation_url = Column(String(512), nullable=True)
     source_article_id = Column(Integer, ForeignKey("articles.id"), nullable=True)

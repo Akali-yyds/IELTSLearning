@@ -242,6 +242,14 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
+  gap: 12px;
+}
+
+.page-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .card-list {
@@ -340,7 +348,7 @@ textarea:focus {
   max-height: 500px;
   resize: vertical;
   font-family: DengXian, "Microsoft YaHei UI", "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: 16px;
  }
 
 .article-left-panel {
@@ -1062,6 +1070,47 @@ textarea:focus {
   border-color: #3b82f6;
 }
 
+.vocab-toolbar-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.vocab-review-btn {
+  height: 40px;
+  padding: 0 18px;
+}
+
+.vocab-status-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.vocab-status-label {
+  font-size: 12px;
+  line-height: 1;
+  color: #9ca3af;
+}
+
+.vocab-status-select {
+  height: 40px;
+  min-width: 110px;
+  border-radius: 999px;
+  border: 1px solid #1f2937;
+  background: #020617;
+  color: #e5e7eb;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.vocab-status-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
 .setting-actions {
   margin-top: 24px;
   display: flex;
@@ -1227,6 +1276,13 @@ textarea:focus {
   border: 1px solid rgba(168, 85, 247, 0.4);
 }
 
+.badge-cet4,
+.badge-cet6 {
+  background: rgba(20, 184, 166, 0.15);
+  color: #2dd4bf;
+  border: 1px solid rgba(20, 184, 166, 0.4);
+}
+
 .badge-oxford {
   background: rgba(34, 197, 94, 0.15);
   color: #4ade80;
@@ -1245,6 +1301,8 @@ textarea:focus {
 [data-theme="light"] .badge-ielts  { background: rgba(56, 189, 248, 0.1);  color: #0284c7; border-color: rgba(56, 189, 248, 0.3); }
 [data-theme="light"] .badge-toefl  { background: rgba(99, 102, 241, 0.1);  color: #4f46e5; border-color: rgba(99, 102, 241, 0.3); }
 [data-theme="light"] .badge-gre    { background: rgba(168, 85, 247, 0.1);  color: #7c3aed; border-color: rgba(168, 85, 247, 0.3); }
+[data-theme="light"] .badge-cet4,
+[data-theme="light"] .badge-cet6{ background: rgba(20, 184, 166, 0.1);  color: #0f766e; border-color: rgba(20, 184, 166, 0.3); }
 [data-theme="light"] .badge-oxford { background: rgba(34, 197, 94, 0.1);   color: #16a34a; border-color: rgba(34, 197, 94, 0.3); }
 [data-theme="light"] .badge-collins{ background: rgba(251, 191, 36, 0.1);  color: #b45309; border-color: rgba(251, 191, 36, 0.3); }
 
@@ -1432,11 +1490,11 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 4px 6px 4px 8px;
   background: rgba(56, 189, 248, 0.1);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
+  border-radius: 999px;
+  transition: background 0.2s, border-color 0.2s;
+  border: 1px solid rgba(56, 189, 248, 0.16);
 }
 
 .phonetic-item:hover {
@@ -1456,7 +1514,82 @@ textarea:focus {
 
 .phonetic-audio {
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.85;
+  line-height: 1;
+}
+
+.phonetic-play-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border-radius: 999px;
+  border: none;
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease, opacity 0.2s ease;
+  padding: 0;
+}
+
+.phonetic-play-btn:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.3);
+  transform: scale(1.05);
+}
+
+.phonetic-play-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.phonetic-play-btn[data-loading="true"] {
+  opacity: 1;
+}
+
+.phonetic-play-spinner {
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 2px solid rgba(56, 189, 248, 0.2);
+  border-top-color: rgba(56, 189, 248, 0.95);
+  animation: phonetic-spin 0.8s linear infinite;
+}
+
+@keyframes phonetic-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.word-popup-section-loading {
+  font-size: 13px;
+  color: #9ca3af;
+  padding: 8px 0 2px;
+}
+
+[data-theme="light"] .phonetic-play-btn {
+  background: rgba(56, 189, 248, 0.12);
+  color: #0284c7;
+}
+
+[data-theme="light"] .phonetic-play-spinner {
+  border-color: rgba(2, 132, 199, 0.15);
+  border-top-color: rgba(2, 132, 199, 0.9);
+}
+
+[data-theme="light"] .vocab-status-label {
+  color: #64748b;
+}
+
+[data-theme="light"] .vocab-status-select {
+  background: #faf6f0;
+  border-color: #c5bfb7;
+  color: #1e293b;
 }
 
 /* 生词详情页 - 中文释义区块 */
@@ -1539,6 +1672,12 @@ textarea:focus {
   background: rgba(251, 191, 36, 0.1);
   border-radius: 4px;
   line-height: 1.5;
+}
+
+[data-theme="light"] .word-popup-chinese {
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.2);
+  border: 1px solid rgba(217, 119, 6, 0.18);
 }
 
 /* 单词弹窗 - 区块（短语、例句、同义词） */
@@ -2347,10 +2486,18 @@ textarea:focus {
   margin-bottom: 12px;
 }
 
+.review-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
 .review-phonetic {
   font-size: 18px;
   color: #9ca3af;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .review-show-answer-btn {
@@ -2448,6 +2595,7 @@ textarea:focus {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid #1f2937;
+  text-align: left;
 }
 
 .review-section-title {
@@ -2456,6 +2604,7 @@ textarea:focus {
   color: #9ca3af;
   margin-bottom: 10px;
   text-transform: uppercase;
+  text-align: left;
 }
 
 /* 短语 */
@@ -2483,6 +2632,7 @@ textarea:focus {
 .review-sentence {
   padding: 10px 0;
   border-bottom: 1px solid #1f2937;
+  text-align: left;
 }
 
 .review-sentence:last-child {
@@ -2493,11 +2643,13 @@ textarea:focus {
   font-size: 14px;
   color: #e2e8f0;
   margin-bottom: 6px;
+  text-align: left;
 }
 
 .sentence-cn {
   font-size: 13px;
   color: #9ca3af;
+  text-align: left;
 }
 
 /* 同义词 */
@@ -3031,4 +3183,3 @@ textarea:focus {
 [data-theme="light"] .progress-numbers .separator { color: #94a3b8; }
 [data-theme="light"] .progress-numbers .total { color: #64748b; }
 [data-theme="light"] .progress-label { color: #64748b; }
-

@@ -12,6 +12,8 @@ export interface VocabularyItem {
   tags?: string | null;
   collins?: number | null;
   oxford?: boolean | null;
+  bnc?: number | null;
+  frq?: number | null;
   meanings_json?: string | null;
   pronunciation_url?: string | null;
   source_article_id?: number | null;

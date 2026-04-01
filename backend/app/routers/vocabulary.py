@@ -1,12 +1,16 @@
+import json
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import update
 
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
+from ..services.pronunciation import get_pronunciation_data
 from ..services.dictionary import lookup_word_smart
+from ..services.tatoeba import get_example_sentences
 
 router = APIRouter(prefix="/vocabulary", tags=["vocabulary"])
 
@@ -67,6 +71,39 @@ def lookup_vocabulary(word: str = Query(..., min_length=1, max_length=128)):
     return out
 
 
+@router.get("/lookup/examples")
+def lookup_vocabulary_examples(
+    word: str = Query(..., min_length=1, max_length=128),
+    lemma: str | None = Query(default=None, min_length=1, max_length=128),
+):
+    if not word.strip():
+        raise HTTPException(status_code=400, detail="word is required")
+
+    return {
+        "word": lemma or word,
+        "sentences": get_example_sentences(word=word, lemma=lemma or ""),
+    }
+
+
+@router.get("/lookup/pronunciation", response_model=schemas.VocabularyPronunciationRead)
+def lookup_vocabulary_pronunciation(
+    word: str = Query(..., min_length=1, max_length=128),
+    lemma: str | None = Query(default=None, min_length=1, max_length=128),
+):
+    if not word.strip():
+        raise HTTPException(status_code=400, detail="word is required")
+
+    pronunciation = get_pronunciation_data(word=word, lemma=lemma or "", include_audio=True)
+    return schemas.VocabularyPronunciationRead(
+        word=lemma or word,
+        phonetic=pronunciation.get("phonetic"),
+        uk_phonetic=pronunciation.get("uk_phonetic"),
+        us_phonetic=pronunciation.get("us_phonetic"),
+        uk_audio=pronunciation.get("uk_audio"),
+        us_audio=pronunciation.get("us_audio"),
+    )
+
+
 @router.post("/", response_model=schemas.VocabularyRead, status_code=status.HTTP_201_CREATED)
 def add_to_vocabulary(
     payload: schemas.VocabularyCreate,
@@ -87,6 +124,48 @@ def add_to_vocabulary(
         if not notebook:
             raise HTTPException(status_code=404, detail="Notebook not found")
 
+    smart = lookup_word_smart(
+        payload.lemma or payload.word,
+        include_pronunciation=True,
+        include_examples=True,
+        include_audio=True,
+    )
+    enriched = smart.get("result") if smart else None
+
+    def merge_meanings_json(existing_json: str | None, enriched_entry: dict | None) -> str | None:
+        if not existing_json and not enriched_entry:
+            return None
+
+        data = {
+            "meanings": [],
+            "sentences": [],
+            "phrases": [],
+            "synonyms": [],
+        }
+
+        if existing_json:
+            try:
+                parsed = json.loads(existing_json)
+                if isinstance(parsed, dict):
+                    for key in data.keys():
+                        value = parsed.get(key)
+                        if isinstance(value, list):
+                            data[key] = value
+            except json.JSONDecodeError:
+                pass
+
+        if enriched_entry:
+            if not data["meanings"]:
+                data["meanings"] = enriched_entry.get("meanings") or []
+            if not data["sentences"]:
+                data["sentences"] = enriched_entry.get("sentences") or []
+            if not data["phrases"]:
+                data["phrases"] = enriched_entry.get("phrases") or []
+            if not data["synonyms"]:
+                data["synonyms"] = enriched_entry.get("synonyms") or []
+
+        return json.dumps(data, ensure_ascii=False)
+
     # 检查单词是否已存在
     existing = (
         db.query(models.Vocabulary)
@@ -98,30 +177,47 @@ def add_to_vocabulary(
     )
     if existing:
         # 如果单词已存在，更新信息（如果有新传入的数据）
-        if payload.phonetic:
-            existing.phonetic = payload.phonetic
-        if payload.chinese_translation:
-            existing.chinese_translation = payload.chinese_translation
-        if payload.english_definition:
-            existing.english_definition = payload.english_definition
-        if payload.uk_phonetic:
-            existing.uk_phonetic = payload.uk_phonetic
-        if payload.us_phonetic:
-            existing.us_phonetic = payload.us_phonetic
-        if payload.uk_audio:
-            existing.uk_audio = payload.uk_audio
-        if payload.us_audio:
-            existing.us_audio = payload.us_audio
+        existing.phonetic = payload.phonetic or existing.phonetic or (enriched.get("phonetic") if enriched else None)
+        existing.chinese_translation = payload.chinese_translation or existing.chinese_translation or (enriched.get("chinese_translation") if enriched else None)
+        existing.english_definition = payload.english_definition or existing.english_definition or (enriched.get("english_definition") if enriched else None)
+        existing.uk_phonetic = payload.uk_phonetic or existing.uk_phonetic or (enriched.get("uk_phonetic") if enriched else None)
+        existing.us_phonetic = payload.us_phonetic or existing.us_phonetic or (enriched.get("us_phonetic") if enriched else None)
+        existing.uk_audio = payload.uk_audio or existing.uk_audio or (enriched.get("uk_audio") if enriched else None)
+        existing.us_audio = payload.us_audio or existing.us_audio or (enriched.get("us_audio") if enriched else None)
         if payload.tags is not None:
             existing.tags = payload.tags
+        elif enriched and not existing.tags:
+            existing.tags = " ".join(k for k, v in (enriched.get("tags") or {}).items() if v)
         if payload.collins is not None:
             existing.collins = payload.collins
+        elif enriched and existing.collins is None:
+            existing.collins = enriched.get("collins")
         if payload.oxford is not None:
             existing.oxford = payload.oxford
-        if payload.meanings_json:
-            existing.meanings_json = payload.meanings_json
+        elif enriched and existing.oxford is None:
+            existing.oxford = enriched.get("oxford")
+        if payload.bnc is not None:
+            existing.bnc = payload.bnc
+        elif enriched and existing.bnc is None:
+            existing.bnc = enriched.get("bnc")
+        if payload.frq is not None:
+            existing.frq = payload.frq
+        elif enriched and existing.frq is None:
+            existing.frq = enriched.get("frq")
+        merged_json = merge_meanings_json(payload.meanings_json or existing.meanings_json, enriched)
+        if merged_json:
+            existing.meanings_json = merged_json
         if payload.pronunciation_url:
             existing.pronunciation_url = payload.pronunciation_url
+        elif not existing.pronunciation_url:
+            existing.pronunciation_url = (
+                payload.uk_audio
+                or payload.us_audio
+                or existing.uk_audio
+                or existing.us_audio
+                or (enriched.get("uk_audio") if enriched else None)
+                or (enriched.get("us_audio") if enriched else None)
+            )
         # 如果指定了生词本，更新
         if payload.notebook_id and existing.notebook_id != payload.notebook_id:
             existing.notebook_id = payload.notebook_id
@@ -134,18 +230,20 @@ def add_to_vocabulary(
         notebook_id=payload.notebook_id,
         word=payload.word,
         lemma=payload.lemma or payload.word.lower(),
-        phonetic=payload.phonetic,
-        chinese_translation=payload.chinese_translation,
-        english_definition=payload.english_definition,
-        uk_phonetic=payload.uk_phonetic,
-        us_phonetic=payload.us_phonetic,
-        uk_audio=payload.uk_audio,
-        us_audio=payload.us_audio,
-        tags=payload.tags,
-        collins=payload.collins,
-        oxford=payload.oxford,
-        meanings_json=payload.meanings_json,
-        pronunciation_url=payload.pronunciation_url,
+        phonetic=payload.phonetic or (enriched.get("phonetic") if enriched else None),
+        chinese_translation=payload.chinese_translation or (enriched.get("chinese_translation") if enriched else None),
+        english_definition=payload.english_definition or (enriched.get("english_definition") if enriched else None),
+        uk_phonetic=payload.uk_phonetic or (enriched.get("uk_phonetic") if enriched else None),
+        us_phonetic=payload.us_phonetic or (enriched.get("us_phonetic") if enriched else None),
+        uk_audio=payload.uk_audio or (enriched.get("uk_audio") if enriched else None),
+        us_audio=payload.us_audio or (enriched.get("us_audio") if enriched else None),
+        tags=payload.tags or (" ".join(k for k, v in (enriched.get("tags") or {}).items() if v) if enriched else None),
+        collins=payload.collins if payload.collins is not None else (enriched.get("collins") if enriched else None),
+        oxford=payload.oxford if payload.oxford is not None else (enriched.get("oxford") if enriched else None),
+        bnc=payload.bnc if payload.bnc is not None else (enriched.get("bnc") if enriched else None),
+        frq=payload.frq if payload.frq is not None else (enriched.get("frq") if enriched else None),
+        meanings_json=merge_meanings_json(payload.meanings_json, enriched),
+        pronunciation_url=payload.pronunciation_url or payload.uk_audio or payload.us_audio or (enriched.get("uk_audio") if enriched else None) or (enriched.get("us_audio") if enriched else None),
         source_article_id=payload.source_article_id,
         source_sentence=payload.source_sentence,
         status="new",
@@ -326,6 +424,14 @@ def delete_notebook(
     if not notebook:
         raise HTTPException(status_code=404, detail="Notebook not found")
 
+    db.execute(
+        update(models.Vocabulary)
+        .where(
+            models.Vocabulary.user_id == current_user.id,
+            models.Vocabulary.notebook_id == notebook_id,
+        )
+        .values(notebook_id=None)
+    )
     db.delete(notebook)
     db.commit()
     return None
@@ -369,6 +475,15 @@ def delete_vocabulary_item(
     )
     if not vocab:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vocabulary not found")
+
+    (
+        db.query(models.ReviewLog)
+        .filter(
+            models.ReviewLog.user_id == current_user.id,
+            models.ReviewLog.vocab_id == vocab_id,
+        )
+        .delete(synchronize_session=False)
+    )
     db.delete(vocab)
     db.commit()
     return None

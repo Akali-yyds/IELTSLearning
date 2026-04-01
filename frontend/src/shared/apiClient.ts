@@ -1,11 +1,17 @@
 import axios from "axios";
 import { getAccessToken } from "../modules/auth/AuthContext";
-import { useNavigate } from "react-router-dom";
 
-const baseURL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+export const apiBaseURL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+
+export function resolveApiUrl(url?: string | null) {
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("/")) return `${apiBaseURL}${url}`;
+  return `${apiBaseURL}/${url}`;
+}
 
 export const apiClient = axios.create({
-  baseURL
+  baseURL: apiBaseURL
 });
 
 apiClient.interceptors.request.use((config) => {
@@ -30,4 +36,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-

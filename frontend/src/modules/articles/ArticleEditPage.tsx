@@ -1,7 +1,8 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../../shared/apiClient";
-import { WordLookupModal } from "../dictionary/WordLookupModal";
+import { VocabularyNotebook } from "../vocabulary/types";
+import { WordPopup } from "../dictionary/WordLookupModal";
 
 interface Article {
   id?: number;
@@ -19,8 +20,13 @@ export const ArticleEditPage = () => {
   const [loading, setLoading] = useState(false);
   const [loadingTranslate, setLoadingTranslate] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lookupOpen, setLookupOpen] = useState(false);
-  const [rawWord, setRawWord] = useState("");
+
+  // 单词释义弹窗状态
+  const [selectedWord, setSelectedWord] = useState("");
+  const [wordPopupPosition, setWordPopupPosition] = useState({ x: 0, y: 0 });
+  const [showWordPopup, setShowWordPopup] = useState(false);
+  const [notebooks, setNotebooks] = useState<VocabularyNotebook[]>([]);
+  const [selectedNotebook, setSelectedNotebook] = useState<number | "">("");
 
   const articleId = useMemo(() => {
     if (!id) return undefined;
@@ -44,6 +50,26 @@ export const ArticleEditPage = () => {
     };
     load();
   }, [id]);
+
+  // 加载生词本列表，并恢复上次选择的生词本
+  useEffect(() => {
+    const loadNotebooks = async () => {
+      try {
+        const res = await apiClient.get<VocabularyNotebook[]>("/vocabulary/notebooks");
+        setNotebooks(res.data);
+        const lastNotebookId = localStorage.getItem("lastNotebookId");
+        if (lastNotebookId) {
+          const exists = res.data.find((nb) => nb.id === parseInt(lastNotebookId));
+          if (exists) {
+            setSelectedNotebook(parseInt(lastNotebookId));
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadNotebooks();
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -100,18 +126,120 @@ export const ArticleEditPage = () => {
     }
   };
 
-  const handleDoubleClickLookup = () => {
-    const selection = window.getSelection()?.toString() ?? "";
-    const candidate = selection.trim();
-    if (!candidate) return;
-    setRawWord(candidate);
-    setLookupOpen(true);
+  // 处理文本选择 - 提取选中的单词
+  const handleTextSelect = useCallback((e: React.MouseEvent) => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      setShowWordPopup(false);
+      return;
+    }
+
+    const text = selection.toString().trim();
+    if (text && text.length > 0 && text.length < 50 && /^[a-zA-Z]+$/.test(text)) {
+      setSelectedWord(text.toLowerCase());
+      setWordPopupPosition({
+        x: e.clientX,
+        y: e.clientY,
+      });
+      setShowWordPopup(true);
+    } else {
+      setShowWordPopup(false);
+    }
+  }, []);
+
+  // 双击处理
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    const selection = window.getSelection();
+    if (!selection) return;
+
+    const text = selection.toString().trim();
+    if (text && text.length > 0 && text.length < 50 && /^[a-zA-Z]+$/.test(text)) {
+      setSelectedWord(text.toLowerCase());
+      setWordPopupPosition({
+        x: e.clientX,
+        y: e.clientY,
+      });
+      setShowWordPopup(true);
+    }
+  }, []);
+
+  // 添加生词
+  const handleAddWord = async (
+    word: string,
+    notebookId?: number,
+    wordData?: {
+      phonetic?: string;
+      chinese_translation?: string;
+      english_definition?: string;
+      uk_phonetic?: string;
+      us_phonetic?: string;
+      uk_audio?: string;
+      us_audio?: string;
+      tags?: Record<string, boolean>;
+      collins?: number;
+      oxford?: boolean;
+      bnc?: number;
+      frq?: number;
+      meanings?: Array<{ partOfSpeech: string; definitions: Array<{ definition: string; example?: string }> }>;
+      sentences?: Array<{ english: string; chinese: string }>;
+      phrases?: Array<{ phrase: string; translation: string }>;
+      synonyms?: string[];
+    }
+  ) => {
+    try {
+      if (!notebookId) {
+        alert("请选择要添加到的生词本");
+        return;
+      }
+
+      const meaningsJson = JSON.stringify({
+        meanings: wordData?.meanings || [],
+        sentences: wordData?.sentences || [],
+        phrases: wordData?.phrases || [],
+        synonyms: wordData?.synonyms || [],
+      });
+
+      const tagsStr = wordData?.tags
+        ? Object.entries(wordData.tags).filter(([, v]) => v).map(([k]) => k).join(" ")
+        : undefined;
+
+      await apiClient.post("/vocabulary", {
+        word: word,
+        lemma: word.toLowerCase(),
+        notebook_id: notebookId,
+        phonetic: wordData?.phonetic,
+        chinese_translation: wordData?.chinese_translation,
+        english_definition: wordData?.english_definition,
+        uk_phonetic: wordData?.uk_phonetic,
+        us_phonetic: wordData?.us_phonetic,
+        uk_audio: wordData?.uk_audio,
+        us_audio: wordData?.us_audio,
+        tags: tagsStr,
+        collins: wordData?.collins,
+        oxford: wordData?.oxford,
+        bnc: wordData?.bnc,
+        frq: wordData?.frq,
+        meanings_json: meaningsJson,
+        pronunciation_url: wordData?.uk_audio || wordData?.us_audio,
+        source_article_id: articleId ?? null,
+      });
+      setShowWordPopup(false);
+      localStorage.setItem("lastNotebookId", String(notebookId));
+    } catch (err) {
+      console.error(err);
+      alert("添加生词失败");
+    }
   };
 
   return (
     <div className="page-container">
       <div className="page-header">
-        <h1>{isNew ? "新建文章" : "编辑文章"}</h1>
+        <div className="page-header-left">
+          <button className="secondary-btn" onClick={() => navigate(-1)}>
+            ← 返回
+          </button>
+          <h1>{isNew ? "新建文章" : "编辑文章"}</h1>
+        </div>
         {!isNew && (
           <button className="danger-btn" onClick={handleDelete}>
             删除
@@ -148,7 +276,8 @@ export const ArticleEditPage = () => {
               onChange={(e) => setForm({ ...form, original_text: e.target.value })}
               placeholder="在这里粘贴英文文章..."
               required
-              onDoubleClick={handleDoubleClickLookup}
+              onMouseUp={(e) => handleTextSelect(e)}
+              onDoubleClick={(e) => handleDoubleClick(e)}
             />
           </div>
 
@@ -160,7 +289,11 @@ export const ArticleEditPage = () => {
                 <span className="translation-status">已翻译</span>
               )}
             </div>
-            <div className="translation-content">
+            <div
+              className="translation-content"
+              onMouseUp={(e) => handleTextSelect(e)}
+              onDoubleClick={(e) => handleDoubleClick(e)}
+            >
               {form.translated_text ? (
                 form.translated_text
               ) : (
@@ -187,13 +320,18 @@ export const ArticleEditPage = () => {
         </div>
       </form>
 
-      <WordLookupModal
-        open={lookupOpen}
-        rawWord={rawWord}
-        sourceArticleId={articleId}
-        onClose={() => setLookupOpen(false)}
-      />
+      {/* 单词释义弹窗 */}
+      {showWordPopup && (
+        <WordPopup
+          word={selectedWord}
+          position={wordPopupPosition}
+          onClose={() => setShowWordPopup(false)}
+          onAddWord={handleAddWord}
+          notebooks={notebooks}
+          selectedNotebookId={selectedNotebook === "" ? undefined : selectedNotebook}
+          onNotebookChange={setSelectedNotebook}
+        />
+      )}
     </div>
   );
 };
-

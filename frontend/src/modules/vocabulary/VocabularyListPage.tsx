@@ -55,29 +55,21 @@ export const VocabularyListPage = () => {
           </button>
           <h1>{notebook ? notebook.name : "所有生词"}</h1>
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="vocab-toolbar-actions">
           {notebookIdNum && notebook && notebook.word_count > 0 && (
             <button
-              className="primary-btn"
+              className="primary-btn vocab-review-btn"
               onClick={() => navigate(`/review/${notebookIdNum}`)}
-              style={{ height: 38, padding: "0 16px" }}
             >
               开始复习
             </button>
           )}
-          <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ fontSize: 13, color: "#9ca3af" }}>状态</span>
+          <label className="vocab-status-filter">
+            <span className="vocab-status-label">状态</span>
             <select
+              className="vocab-status-select"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                height: 38,
-                borderRadius: 999,
-                border: "1px solid #1f2937",
-                background: "#020617",
-                color: "#e5e7eb",
-                padding: "0 10px"
-              }}
             >
               <option value="">全部</option>
               <option value="new">new</option>
@@ -128,4 +120,3 @@ export const VocabularyListPage = () => {
     </div>
   );
 };
-

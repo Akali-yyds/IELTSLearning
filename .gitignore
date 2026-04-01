@@ -1,1 +1,3 @@
 backend/data/stardict.db
+backend/data/tatoeba_examples.db
+backend/data/generated_audio/
