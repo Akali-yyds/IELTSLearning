@@ -1,243 +1,263 @@
 # IELTSLearning
 
-面向雅思备考场景的英语学习与词汇管理平台。
+面向 IELTS / TOEFL 等英语学习场景的本地优先学习应用。项目把“翻译文章 -> 双击查词 -> 加入生词本 -> 复习巩固 -> 数据统计”串成一条完整链路，前端使用 React + Vite，后端使用 FastAPI + SQLAlchemy。
 
----
+## 当前能力
 
-## 项目简介
-
-IELTSLearning 是一个面向英语学习者的 Web 应用，聚焦文章精读、词汇积累与记忆复习三个核心场景。  
-用户可以在平台中导入或粘贴英语文章，通过双击查词将生词加入生词本，并由系统根据遗忘曲线自动安排每日复习计划。  
-项目适用于有系统性词汇积累需求的个人学习者，尤其针对雅思、托福等标准化考试备考场景。
-
----
-
-## 项目背景 / 目标
-
-在英语学习过程中，词汇积累、文章阅读与记忆复习往往分散在多个工具中，难以形成闭环。  
-本项目希望将"读文章 → 查生词 → 加生词本 → 定期复习"整合为一套连贯的学习流程，避免工具切换带来的中断。  
-项目目标是提供一个轻量、自托管的学习工具，让用户在阅读真实语料的同时完成词汇积累，并依靠 SM-2 算法的间隔复习降低遗忘率。
-
----
-
-## 功能特性
-
-- 支持文章录入、全文机器翻译与保存管理
-- 支持双击单词弹窗查词，展示音标、中英文释义、词性、考试标注（雅思/托福/GRE）
-- 支持将查词结果一键加入生词本，自动去重并记录词根形式
-- 支持基于 SM-2 遗忘曲线的每日复习任务自动生成与调度
-- 支持复习反馈（认识 / 模糊 / 不认识）驱动熟练度与复习间隔动态调整
-- 支持学习统计数据展示，包括每日复习数、生词总量、掌握比例
-- 支持用户注册登录、JWT 鉴权与每日复习目标自定义配置
-
----
-
-## 项目演示
-
-当前版本暂未提供公开在线演示，可通过本地部署方式体验完整功能。
-
-### 核心使用流程
-
-1. 注册并登录系统
-2. 在翻译页面粘贴英语文章，触发机器翻译或保存为文章
-3. 在文章精读页双击单词，弹窗查看释义后加入生词本
-4. 进入"今日复习"完成每日词汇复习任务
-5. 在统计页面查看学习进度与生词掌握情况
-
----
+- 文章翻译与保存
+- 双击单词弹窗查词
+- ECDICT 本地词典秒级返回释义
+- CMUdict + eSpeak 生成音标
+- Piper / eSpeak 生成英式、美式发音
+- Tatoeba 本地例句库查询，中文在导入时统一转为简体
+- 生词本、记单词、今日复习、学习统计
 
 ## 技术栈
 
 ### 前端
 
-- React 18 + TypeScript
+- React 18
+- TypeScript
 - Vite
 - React Router
+- Axios
+- ECharts
 
 ### 后端
 
 - Python 3.11+
 - FastAPI
-- SQLAlchemy + Alembic
+- SQLAlchemy
+- Alembic
+- PostgreSQL
 
-### 数据存储
+### 词典 / 发音 / 例句
 
-- PostgreSQL（主数据库）
-- ECDICT（本地 SQLite 离线词典，含 90 万词条）
-
-### 外部服务
-
-- DeepL API（文章翻译，可选）
-
-### 认证
-
-- JWT + Refresh Token
-
----
+- ECDICT：本地 SQLite 词典
+- CMUdict：补充音标数据
+- eSpeak：补充 IPA 音标、作为 Piper 的兜底发音方案
+- Piper：英式 / 美式音频生成
+- Tatoeba：本地 SQLite 例句库
+- OpenCC：导入 Tatoeba 时统一转简体
 
 ## 项目结构
 
 ```text
 IELTSLearning/
-├── backend/                # 后端服务（FastAPI）
-│   ├── app/
-│   │   ├── routers/        # API 路由模块
-│   │   ├── services/       # 业务逻辑层（词典、翻译、复习算法）
-│   │   ├── models.py       # SQLAlchemy 数据模型
-│   │   ├── schemas.py      # Pydantic 数据校验
-│   │   ├── auth.py         # JWT 鉴权
-│   │   ├── database.py     # 数据库连接
-│   │   └── config.py       # 配置管理
-│   ├── migrations/         # Alembic 数据库迁移脚本
-│   ├── data/               # ECDICT 本地词典文件（stardict.db）
-│   └── requirements.txt
-│
-├── frontend/               # 前端应用（React + TypeScript）
-│   ├── src/
-│   │   ├── modules/        # 页面模块（auth / dashboard / translate / vocabulary / reviews 等）
-│   │   ├── shared/         # 公共组件与工具
-│   │   ├── App.tsx
-│   │   └── styles.css
-│   └── package.json
-│
-└── README.md
+├─ backend/
+│  ├─ app/
+│  │  ├─ routers/
+│  │  ├─ services/
+│  │  ├─ config.py
+│  │  ├─ main.py
+│  │  ├─ models.py
+│  │  └─ schemas.py
+│  ├─ alembic/
+│  ├─ data/
+│  ├─ setup_ecdict.py
+│  ├─ setup_tatoeba.py
+│  └─ requirements.txt
+├─ frontend/
+│  ├─ src/
+│  └─ package.json
+├─ start.bat
+└─ README.md
 ```
 
-- `backend/app/routers/`：各功能模块的 HTTP 路由（认证、文章、词典、生词本、复习、统计、设置）
-- `backend/app/services/`：核心业务逻辑，包括 ECDICT 查词、DeepL 翻译封装、SM-2 复习调度
-- `frontend/src/modules/`：按页面功能拆分的 React 模块，各自包含页面组件与本地状态
+## 运行环境
 
----
-
-## 环境要求
-
-- Node.js >= 18.0
-- Python >= 3.11
-- PostgreSQL >= 14
-- ECDICT 词典文件（`backend/data/stardict.db`，需单独下载，见下方说明）
-
----
-
-## 安装步骤
-
-### 1. 克隆项目
-
-```bash
-git clone https://github.com/your-name/IELTSLearning.git
-cd IELTSLearning
-```
-
-### 2. 配置后端环境
-
-```bash
-cd backend
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-### 3. 配置前端环境
-
-```bash
-cd ../frontend
-npm install
-```
-
-### 4. 准备环境变量
-
-在 `backend/` 目录下创建 `.env` 文件：
-
-```env
-DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/ielts_learning
-JWT_SECRET_KEY=your-secret-key-here
-DEEPL_API_KEY=your-deepl-key        # 可选，不填则翻译功能不可用
-```
-
-在 `frontend/` 目录下创建 `.env` 文件（可选，默认指向本地后端）：
-
-```env
-VITE_API_BASE_URL=http://localhost:8000
-```
-
-### 5. 初始化数据库
-
-```bash
-cd backend
-alembic upgrade head
-```
-
-### 6. 下载 ECDICT 词典
-
-ECDICT 词典文件（`stardict.db`）需单独获取并放置在 `backend/data/` 目录下。  
-可从 [ECDICT 项目](https://github.com/skywind3000/ECDICT) 下载 CSV 后使用项目内脚本转换，或直接下载已构建的 SQLite 文件。  
-若词典文件缺失，查词功能将不可用，其余功能不受影响。
-
----
+- Node.js 18+
+- Python 3.11+
+- PostgreSQL 14+
+- Windows 开发环境下建议直接使用项目里的 `uv` 虚拟环境流程
 
 ## 快速开始
 
-### 启动后端服务
+### 1. 安装后端依赖
 
-```bash
+```powershell
 cd backend
+uv venv
+.\.venv\Scripts\activate
+uv pip install -r requirements.txt
+```
+
+### 2. 安装前端依赖
+
+```powershell
+cd ..\frontend
+npm install
+```
+
+### 3. 配置后端 `.env`
+
+在 `backend/.env` 中至少配置以下内容：
+
+```env
+DATABASE_URL=postgresql+psycopg2://postgres:password@localhost:5432/ielts_learning
+JWT_SECRET_KEY=replace-with-a-random-secret
+
+DEEPL_API_KEY=
+DEEPL_API_URL=https://api-free.deepl.com
+
+BAIDU_APPID=
+BAIDU_SECRET_KEY=
+
+TATOEBA_DB_PATH=data/tatoeba_examples.db
+
+PIPER_PATH=piper
+PIPER_DATA_DIR=data/piper_voices
+PIPER_VOICE_EN_US=en_US-lessac-medium
+PIPER_VOICE_EN_GB=en_GB-alan-medium
+PIPER_MODEL_EN_US=
+PIPER_MODEL_EN_GB=
+PIPER_CONFIG_EN_US=
+PIPER_CONFIG_EN_GB=
+
+ESPEAK_PATH=espeak
+```
+
+说明：
+
+- `DATABASE_URL`、`JWT_SECRET_KEY` 必填
+- `DEEPL_*`、`BAIDU_*` 按需配置，至少准备一种翻译服务即可
+- `PIPER_VOICE_EN_US` / `PIPER_VOICE_EN_GB` 支持按 voice 名称自动下载模型
+- 如果你已经手动下载了 `.onnx` 模型，也可以直接填写 `PIPER_MODEL_EN_US` / `PIPER_MODEL_EN_GB`
+- `ESPEAK_PATH` 是 Piper 不可用时的兜底方案，也用于补充 IPA 音标
+
+### 4. 初始化数据库
+
+```powershell
+cd ..\backend
+alembic upgrade head
+```
+
+### 5. 初始化 ECDICT
+
+```powershell
+.\.venv\Scripts\python.exe setup_ecdict.py
+```
+
+执行后会生成：
+
+- `backend/data/stardict.db`
+
+### 6. 初始化本地 Tatoeba 例句库
+
+```powershell
+.\.venv\Scripts\python.exe setup_tatoeba.py
+```
+
+这个脚本会：
+
+- 下载官方 `eng_sentences.tsv.bz2`
+- 下载官方 `cmn_sentences.tsv.bz2`
+- 下载官方 `eng-cmn_links.tsv.bz2`
+- 导入本地 SQLite
+- 在导入阶段统一把中文转换为简体
+- 建立 FTS 索引，供例句快速查询
+
+执行后会生成：
+
+- `backend/data/tatoeba_examples.db`
+
+### 7. 启动项目
+
+方式一：分别启动前后端
+
+```powershell
+cd backend
+.\.venv\Scripts\activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 启动前端服务
-
-```bash
+```powershell
 cd frontend
 npm run dev
 ```
 
-### 访问地址
+方式二：使用一键启动脚本
 
-- 前端：`http://localhost:5173`
-- 后端 API：`http://localhost:8000`
-- 接口文档（Swagger）：`http://localhost:8000/docs`
+```powershell
+.\start.bat
+```
 
----
+访问地址：
 
-## 使用说明
+- 前端：[http://localhost:5173](http://localhost:5173)
+- 后端 API：[http://localhost:8000](http://localhost:8000)
+- Swagger 文档：[http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 普通用户使用流程
+## 发音与例句说明
 
-1. 注册并登录系统
-2. 进入**翻译**页面，粘贴英语文章，点击"翻译"获取中文对照
-3. 点击"保存文章"将文章存入文章库，后续可在**文章**页面重新打开精读
-4. 在文章精读或翻译页面**双击任意单词**，弹窗展示释义、音标与词典信息，确认后点击"加入生词本"
-5. 进入**生词本**查看已收录词汇，点击单词查看详情（中英文释义、例句、短语、标签）
-6. 进入**今日复习**完成系统每日推送的复习任务，根据实际掌握程度选择"认识 / 模糊 / 不认识"
-7. 在**统计**页面查看累计学习数据
+### 发音
 
-### 生词本说明
+- 单词释义弹窗先返回 ECDICT 基础内容
+- 发音和例句随后异步补齐
+- 音频优先使用 Piper 生成
+- 若 Piper 不可用，则回退到 eSpeak
+- 已生成音频会缓存到 `backend/data/generated_audio/`
+- 后端通过 `/generated-audio` 静态路由暴露音频文件
 
-- 双击查词后可选择加入哪个生词本（默认为"默认生词本"）
-- 同一单词在同一生词本内不会重复添加
-- 词典数据来自 ECDICT 本地词典，包含 IELTS / TOEFL / GRE / Oxford / Collins 标注
+### 例句
 
-### 复习机制说明
+- 当前不再走在线 Tatoeba API
+- 项目使用本地 SQLite 例句库查询
+- 中文在导入阶段统一转换为简体，因此运行时不再做简繁转换
+- 例句查询现在是本地检索，速度明显快于在线 API 方案
 
-复习系统采用 **SM-2 简化版**遗忘曲线算法：
+## 主要页面
 
-- 新词首次加入后次日进入复习队列
-- 每次复习根据反馈（认识 / 模糊 / 不认识）调整下次复习间隔
-- 熟练度达到阈值后单词状态升级为"mastered"，复习频率降低
+- 翻译页：输入文章、机翻、双击查词、加入生词本
+- 文章页：保存后的文章精读
+- 生词本页：按生词本查看和管理词汇
+- 记单词页：基于已存释义、音标、例句、音频做复习
+- 今日复习页：按复习计划完成当天任务
+- 仪表盘：查看学习统计
 
----
+## 常见命令
 
-## 配置说明
+### 前端
 
-| 配置项 | 是否必填 | 示例值 | 说明 |
-|---|---|---|---|
-| `DATABASE_URL` | 是 | `postgresql+psycopg2://user:pass@localhost:5432/ielts` | PostgreSQL 连接字符串 |
-| `JWT_SECRET_KEY` | 是 | `your-random-secret` | JWT 签名密钥，建议使用随机长字符串 |
-| `DEEPL_API_KEY` | 否 | `your-deepl-key` | DeepL 翻译 API 密钥，不填则翻译功能不可用 |
-| `VITE_API_BASE_URL` | 否 | `http://localhost:8000` | 前端指向的后端地址，默认为本地 8000 端口 |
+```powershell
+cd frontend
+npm run dev
+npm run build
+```
 
-- 不要将真实密钥提交到版本控制系统
-- `JWT_SECRET_KEY` 建议使用 `openssl rand -hex 32` 生成
+### 后端
+
+```powershell
+cd backend
+.\.venv\Scripts\activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 重新构建本地例句库
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe setup_tatoeba.py
+```
+
+## 数据来源
+
+- ECDICT：[https://github.com/skywind3000/ECDICT](https://github.com/skywind3000/ECDICT)
+- Tatoeba：[https://tatoeba.org](https://tatoeba.org)
+- CMUdict：[https://www.speech.cs.cmu.edu/cgi-bin/cmudict](https://www.speech.cs.cmu.edu/cgi-bin/cmudict)
+- Piper：[https://github.com/rhasspy/piper](https://github.com/rhasspy/piper)
+- eSpeak：[https://espeak.sourceforge.net/](https://espeak.sourceforge.net/)
+
+## 排查建议
+
+- 查词没有结果：先确认 `backend/data/stardict.db` 是否已生成
+- 例句为空：先确认 `backend/data/tatoeba_examples.db` 是否已生成
+- 发音按钮不可用：先确认 `piper` 或 `espeak` 是否可执行
+- 前端请求失败：先确认后端已启动在 `8000` 端口
+- 数据库报错：先确认 PostgreSQL 已创建对应数据库，并执行过 `alembic upgrade head`
+
+## 备注
+
+- 项目当前默认面向本地开发环境
+- `.env` 中不要提交真实密钥
+- 如果需要切换 Piper 声音，直接修改 `PIPER_VOICE_EN_US` / `PIPER_VOICE_EN_GB` 即可
