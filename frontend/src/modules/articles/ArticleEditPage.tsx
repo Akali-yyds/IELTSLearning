@@ -122,65 +122,70 @@ export const ArticleEditPage = () => {
       {loading && !isNew && <div>加载中...</div>}
       {error && <div className="error-text">{error}</div>}
 
-      <div className="article-split-view">
-        {/* 左侧：原文编辑区 */}
-        <div className="article-left-panel">
-          <form onSubmit={handleSubmit} className="article-form">
-            <label>
-              标题
-              <input
-                type="text"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                required
-              />
-            </label>
-            <label className="original-text-label">
-              英文原文
-              <textarea
-                rows={20}
-                value={form.original_text}
-                onChange={(e) => setForm({ ...form, original_text: e.target.value })}
-                placeholder="在这里粘贴英文文章..."
-                required
-                onDoubleClick={handleDoubleClickLookup}
-              />
-            </label>
-            <div className="article-actions">
-              <button type="submit" className="primary-btn" disabled={loading}>
-                {loading ? "保存中..." : "保存"}
-              </button>
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={handleTranslate}
-                disabled={loadingTranslate}
-              >
-                {loadingTranslate ? "翻译中..." : "全文翻译"}
-              </button>
-            </div>
-          </form>
+      <form onSubmit={handleSubmit} className="article-edit-layout">
+        <div className="article-title-row">
+          <label className="article-title-label">
+            标题
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              required
+            />
+          </label>
         </div>
 
-        {/* 右侧：翻译结果区 */}
-        <div className="article-right-panel">
-          <div className="translation-header">
-            <h2>中文译文</h2>
-            {form.translated_text && (
-              <span className="translation-status">已翻译</span>
-            )}
+        <div className="article-split-view">
+          {/* 左侧：英文原文 */}
+          <div className="article-original-panel">
+            <div className="translation-header">
+              <h2>英文原文</h2>
+            </div>
+            <textarea
+              className="article-original-textarea"
+              rows={20}
+              value={form.original_text}
+              onChange={(e) => setForm({ ...form, original_text: e.target.value })}
+              placeholder="在这里粘贴英文文章..."
+              required
+              onDoubleClick={handleDoubleClickLookup}
+            />
           </div>
-          <div className="translation-content">
-            {form.translated_text ? (
-              form.translated_text
-            ) : (
-              <div className="translation-placeholder">
-                {id ? "点击「全文翻译」按钮获取翻译" : "保存文章后可进行翻译"}
-              </div>
-            )}
+
+          {/* 右侧：中文译文 */}
+          <div className="article-right-panel">
+            <div className="translation-header">
+              <h2>中文译文</h2>
+              {form.translated_text && (
+                <span className="translation-status">已翻译</span>
+              )}
+            </div>
+            <div className="translation-content">
+              {form.translated_text ? (
+                form.translated_text
+              ) : (
+                <div className="translation-placeholder">
+                  {id ? "点击「全文翻译」按钮获取翻译" : "保存文章后可进行翻译"}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+
+        <div className="article-actions">
+          <button type="submit" className="primary-btn" disabled={loading}>
+            {loading ? "保存中..." : "保存"}
+          </button>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={handleTranslate}
+            disabled={loadingTranslate}
+          >
+            {loadingTranslate ? "翻译中..." : "全文翻译"}
+          </button>
+        </div>
+      </form>
 
       <WordLookupModal
         open={lookupOpen}
