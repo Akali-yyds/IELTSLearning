@@ -16,7 +16,7 @@ export const LoginPage = () => {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/articles");
+      navigate("/");
     } catch (err) {
       console.error(err);
       setError("登录失败，请检查邮箱和密码。");
@@ -61,4 +61,3 @@ export const LoginPage = () => {
     </div>
   );
 };
-

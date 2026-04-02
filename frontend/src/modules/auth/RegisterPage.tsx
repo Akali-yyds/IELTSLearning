@@ -21,7 +21,7 @@ export const RegisterPage = () => {
     setLoading(true);
     try {
       await register(email, password);
-      navigate("/articles");
+      navigate("/");
     } catch (err) {
       console.error(err);
       setError("注册失败，邮箱可能已被使用。");
@@ -75,4 +75,3 @@ export const RegisterPage = () => {
     </div>
   );
 };
-
