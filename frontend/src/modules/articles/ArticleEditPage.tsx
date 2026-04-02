@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../../shared/apiClient";
 import { VocabularyNotebook } from "../vocabulary/types";
-import { WordPopup } from "../dictionary/WordLookupModal";
+import { LazyWordPopup } from "../dictionary/LazyWordPopup";
 
 interface Article {
   id?: number;
@@ -327,7 +327,7 @@ export const ArticleEditPage = () => {
 
       {/* 单词释义弹窗 */}
       {showWordPopup && (
-        <WordPopup
+        <LazyWordPopup
           word={selectedWord}
           position={wordPopupPosition}
           onClose={() => setShowWordPopup(false)}
