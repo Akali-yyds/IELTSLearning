@@ -160,6 +160,44 @@ def _row_to_dict(row: sqlite3.Row, matched_word: str) -> dict:
     }
 
 
+def _fill_missing_phonetic_from_lemma(entry: dict) -> dict:
+    """For inflected forms like "teachers", borrow lemma phonetic from ECDICT when available."""
+    if not entry or entry.get("phonetic"):
+        return entry
+
+    exchange = entry.get("exchange") or {}
+    lemma = (exchange.get("lemma") or "").strip().lower()
+    current_word = (entry.get("word") or "").strip().lower()
+    if not lemma or lemma == current_word:
+        return entry
+
+    conn = _get_conn()
+    if conn is None:
+        return entry
+
+    try:
+        cursor = conn.execute(
+            "SELECT * FROM stardict WHERE word = ? COLLATE NOCASE",
+            (lemma,),
+        )
+        row = cursor.fetchone()
+    except Exception:
+        return entry
+
+    if row is None:
+        return entry
+
+    lemma_entry = _row_to_dict(row, lemma)
+    phonetic = lemma_entry.get("phonetic") or lemma_entry.get("uk_phonetic") or lemma_entry.get("us_phonetic")
+    if not phonetic:
+        return entry
+
+    entry["phonetic"] = phonetic
+    entry["uk_phonetic"] = lemma_entry.get("uk_phonetic") or phonetic
+    entry["us_phonetic"] = lemma_entry.get("us_phonetic") or phonetic
+    return entry
+
+
 def query(word: str) -> Optional[dict]:
     """直接查询单词（精确匹配，大小写不敏感）"""
     conn = _get_conn()
@@ -173,7 +211,7 @@ def query(word: str) -> Optional[dict]:
         row = cursor.fetchone()
         if row is None:
             return None
-        return _row_to_dict(row, word.lower())
+        return _fill_missing_phonetic_from_lemma(_row_to_dict(row, word.lower()))
     except Exception:
         return None
 

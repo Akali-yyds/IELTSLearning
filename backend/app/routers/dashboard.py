@@ -2,7 +2,7 @@ from typing import List, Optional
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func
+from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -11,6 +11,10 @@ from ..database import get_db
 from ..services import review as review_service
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+UNKNOWN_FEEDBACKS = ("unknown", "again")
+VAGUE_FEEDBACKS = ("vague", "hard")
+KNOWN_FEEDBACKS = ("known", "good", "easy", "very_known")
 
 
 @router.get("/overview", response_model=schemas.DashboardOverview)
@@ -21,7 +25,10 @@ def get_dashboard_overview(
     # 1. 生词本总量
     total_vocab = (
         db.query(func.count(models.Vocabulary.id))
-        .filter(models.Vocabulary.user_id == current_user.id)
+        .filter(
+            models.Vocabulary.user_id == current_user.id,
+            models.Vocabulary.notebook_id.isnot(None),
+        )
         .scalar()
         or 0
     )
@@ -31,6 +38,7 @@ def get_dashboard_overview(
         db.query(func.count(models.Vocabulary.id))
         .filter(
             models.Vocabulary.user_id == current_user.id,
+            models.Vocabulary.notebook_id.isnot(None),
             models.Vocabulary.status == "mastered",
         )
         .scalar()
@@ -39,28 +47,27 @@ def get_dashboard_overview(
 
     # 3. 今日待复习数量
     today = date.today()
-    pending_review = (
-        db.query(func.count(models.Vocabulary.id))
-        .filter(
-            models.Vocabulary.user_id == current_user.id,
-            models.Vocabulary.next_review_at <= today,
-            models.Vocabulary.status.in_(["learning", "reviewing"]),
-        )
-        .scalar()
-        or 0
-    )
+    today_task = review_service.generate_today_tasks(db, current_user.id)
+    task_items = review_service.parse_task_vocab_ids(today_task, db)
+    task_vocab_ids = [item.id for item in task_items]
 
     # 4. 今日已完成复习数量（今天创建的复习记录）
     today_start = datetime.combine(today, datetime.min.time())
-    today_done = (
-        db.query(func.count(models.ReviewLog.id))
-        .filter(
-            models.ReviewLog.user_id == current_user.id,
-            models.ReviewLog.created_at >= today_start,
+    if task_vocab_ids:
+        today_done = (
+            db.query(func.count(distinct(models.ReviewLog.vocab_id)))
+            .filter(
+                models.ReviewLog.user_id == current_user.id,
+                models.ReviewLog.created_at >= today_start,
+                models.ReviewLog.vocab_id.in_(task_vocab_ids),
+            )
+            .scalar()
+            or 0
         )
-        .scalar()
-        or 0
-    )
+    else:
+        today_done = 0
+
+    pending_review = max(len(task_items) - today_done, 0)
 
     # 5. 连续学习天数（基于复习记录）
     streak_days = calculate_streak_days(db, current_user.id)
@@ -141,7 +148,10 @@ def get_stats(
     # 1. 词汇统计
     total_vocab = (
         db.query(func.count(models.Vocabulary.id))
-        .filter(models.Vocabulary.user_id == current_user.id)
+        .filter(
+            models.Vocabulary.user_id == current_user.id,
+            models.Vocabulary.notebook_id.isnot(None),
+        )
         .scalar()
         or 0
     )
@@ -157,6 +167,7 @@ def get_stats(
             db.query(func.count(models.Vocabulary.id))
             .filter(
                 models.Vocabulary.user_id == current_user.id,
+                models.Vocabulary.notebook_id.isnot(None),
                 models.Vocabulary.status == status,
             )
             .scalar()
@@ -189,7 +200,7 @@ def get_stats(
                 models.ReviewLog.user_id == current_user.id,
                 models.ReviewLog.created_at >= day_start,
                 models.ReviewLog.created_at <= day_end,
-                models.ReviewLog.feedback == "unknown",
+                models.ReviewLog.feedback.in_(UNKNOWN_FEEDBACKS),
             )
             .scalar()
             or 0
@@ -200,7 +211,7 @@ def get_stats(
                 models.ReviewLog.user_id == current_user.id,
                 models.ReviewLog.created_at >= day_start,
                 models.ReviewLog.created_at <= day_end,
-                models.ReviewLog.feedback == "vague",
+                models.ReviewLog.feedback.in_(VAGUE_FEEDBACKS),
             )
             .scalar()
             or 0
@@ -211,7 +222,7 @@ def get_stats(
                 models.ReviewLog.user_id == current_user.id,
                 models.ReviewLog.created_at >= day_start,
                 models.ReviewLog.created_at <= day_end,
-                models.ReviewLog.feedback == "known",
+                models.ReviewLog.feedback.in_(KNOWN_FEEDBACKS),
             )
             .scalar()
             or 0

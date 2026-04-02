@@ -1310,9 +1310,9 @@ textarea:focus {
 .word-popup {
   position: fixed;
   z-index: 100;
-  width: 320px;
+  width: min(320px, calc(100vw - 16px));
   min-height: 360px;
-  max-height: min(90vh, 580px);
+  max-height: min(calc(100vh - 16px), 580px);
   background: rgba(15, 23, 42, 0.98);
   border: 1px solid #374151;
   border-radius: 12px;
@@ -1510,6 +1510,10 @@ textarea:focus {
 .phonetic-text {
   font-size: 13px;
   color: #9ca3af;
+}
+
+.phonetic-text-loading {
+  opacity: 0.75;
 }
 
 .phonetic-audio {

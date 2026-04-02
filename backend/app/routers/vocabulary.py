@@ -3,7 +3,6 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import update
 
 from .. import models, schemas
 from ..auth import get_current_user
@@ -424,14 +423,36 @@ def delete_notebook(
     if not notebook:
         raise HTTPException(status_code=404, detail="Notebook not found")
 
-    db.execute(
-        update(models.Vocabulary)
-        .where(
-            models.Vocabulary.user_id == current_user.id,
-            models.Vocabulary.notebook_id == notebook_id,
+    vocab_ids = [
+        vocab_id
+        for (vocab_id,) in (
+            db.query(models.Vocabulary.id)
+            .filter(
+                models.Vocabulary.user_id == current_user.id,
+                models.Vocabulary.notebook_id == notebook_id,
+            )
+            .all()
         )
-        .values(notebook_id=None)
-    )
+    ]
+
+    if vocab_ids:
+        (
+            db.query(models.ReviewLog)
+            .filter(
+                models.ReviewLog.user_id == current_user.id,
+                models.ReviewLog.vocab_id.in_(vocab_ids),
+            )
+            .delete(synchronize_session=False)
+        )
+        (
+            db.query(models.Vocabulary)
+            .filter(
+                models.Vocabulary.user_id == current_user.id,
+                models.Vocabulary.notebook_id == notebook_id,
+            )
+            .delete(synchronize_session=False)
+        )
+
     db.delete(notebook)
     db.commit()
     return None

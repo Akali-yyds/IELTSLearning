@@ -27,6 +27,7 @@ export const ArticleEditPage = () => {
   const [showWordPopup, setShowWordPopup] = useState(false);
   const [notebooks, setNotebooks] = useState<VocabularyNotebook[]>([]);
   const [selectedNotebook, setSelectedNotebook] = useState<number | "">("");
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: "", visible: false });
 
   const articleId = useMemo(() => {
     if (!id) return undefined;
@@ -225,6 +226,10 @@ export const ArticleEditPage = () => {
       });
       setShowWordPopup(false);
       localStorage.setItem("lastNotebookId", String(notebookId));
+      setToast({ message: `单词 "${word}" 已添加到生词本`, visible: true });
+      window.setTimeout(() => {
+        setToast({ message: "", visible: false });
+      }, 3000);
     } catch (err) {
       console.error(err);
       alert("添加生词失败");
@@ -332,6 +337,7 @@ export const ArticleEditPage = () => {
           onNotebookChange={setSelectedNotebook}
         />
       )}
+      {toast.visible && <div className="toast-notification">{toast.message}</div>}
     </div>
   );
 };

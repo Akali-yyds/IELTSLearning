@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { apiClient, resolveApiUrl } from "../../shared/apiClient";
 import { VocabularyNotebook } from "../vocabulary/types";
 
@@ -59,43 +59,6 @@ export const WordPopup = ({
     }
   }, []);
 
-  useEffect(() => {
-    if (!popupRef.current) return;
-    const rect = popupRef.current.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    let left = position.x - rect.width / 2;
-    let top: number;
-
-    const topBelow = position.y + 10;
-    const topAbove = position.y - rect.height - 10;
-
-    if (topBelow + rect.height <= vh - 8) {
-      top = topBelow;
-    } else if (topAbove >= 8) {
-      top = topAbove;
-    } else {
-      top = Math.max(8, Math.min(vh - rect.height - 8, position.y - rect.height / 2));
-      const rightLeft = position.x + 20;
-      if (rightLeft + rect.width <= vw - 8) {
-        left = rightLeft;
-      } else {
-        left = position.x - rect.width - 20;
-      }
-    }
-
-    if (left < 8) left = 8;
-    if (left + rect.width > vw - 8) left = vw - rect.width - 8;
-
-    setComputedStyle({
-      left,
-      top,
-      visibility: "visible",
-      transform: "none",
-    });
-  }, [position, loading]);
-
   const [meaning, setMeaning] = useState<{
     word?: string;
     phonetic?: string;
@@ -132,6 +95,53 @@ export const WordPopup = ({
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
   const [examplesLoading, setExamplesLoading] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!popupRef.current) return;
+    const positionPopup = () => {
+      if (!popupRef.current) return;
+      const rect = popupRef.current.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const maxHeight = Math.min(vh - 16, 580);
+      const effectiveHeight = Math.min(rect.height, maxHeight);
+
+      let left = position.x - rect.width / 2;
+      let top: number;
+
+      const topBelow = position.y + 10;
+      const topAbove = position.y - effectiveHeight - 10;
+
+      if (topBelow + effectiveHeight <= vh - 8) {
+        top = topBelow;
+      } else if (topAbove >= 8) {
+        top = topAbove;
+      } else {
+        top = Math.max(8, Math.min(vh - effectiveHeight - 8, position.y - effectiveHeight / 2));
+        const rightLeft = position.x + 20;
+        if (rightLeft + rect.width <= vw - 8) {
+          left = rightLeft;
+        } else {
+          left = position.x - rect.width - 20;
+        }
+      }
+
+      if (left < 8) left = 8;
+      if (left + rect.width > vw - 8) left = vw - rect.width - 8;
+
+      setComputedStyle({
+        left,
+        top,
+        maxHeight,
+        visibility: "visible",
+        transform: "none",
+      });
+    };
+
+    positionPopup();
+    window.addEventListener("resize", positionPopup);
+    return () => window.removeEventListener("resize", positionPopup);
+  }, [position, loading, audioLoading, examplesLoading, meaning]);
 
   useEffect(() => {
     if (selectedNotebookId) {
@@ -293,12 +303,13 @@ export const WordPopup = ({
     phonetic?: string,
     audioUrl?: string
   ) => {
-    if (!phonetic) return null;
+    const displayPhonetic = phonetic || (audioLoading ? "加载中..." : "");
+    if (!displayPhonetic) return null;
 
     return (
       <div className="phonetic-item">
         <span className="phonetic-label">{label}</span>
-        <span className="phonetic-text">{phonetic}</span>
+        <span className={`phonetic-text${phonetic ? "" : " phonetic-text-loading"}`}>{displayPhonetic}</span>
         <button
           type="button"
           className="phonetic-play-btn"
@@ -383,7 +394,7 @@ export const WordPopup = ({
           <>
             {/* 音标和发音 */}
             <div className="word-popup-phonetic-row">
-              {(meaning.uk_phonetic || meaning.us_phonetic || meaning.phonetic) && (
+              {(audioLoading || meaning.uk_phonetic || meaning.us_phonetic || meaning.phonetic) && (
                 <div className="word-popup-phonetics">
                   {renderPhoneticItem("英", meaning.uk_phonetic || meaning.phonetic, meaning.uk_audio)}
                   {renderPhoneticItem("美", meaning.us_phonetic || meaning.phonetic, meaning.us_audio)}
