@@ -225,6 +225,10 @@ class AudioCacheSummary(BaseModel):
     cache_path: str
     total_files: int
     total_bytes: int
+    protected_files: int
+    protected_bytes: int
+    cleanable_files: int
+    cleanable_bytes: int
     stale_files: int
     stale_bytes: int
     max_age_days: int
@@ -241,6 +245,8 @@ class AudioCacheCleanupResult(BaseModel):
     max_age_days: int
     deleted_files: int
     deleted_bytes: int
+    protected_files: int
+    protected_bytes: int
     remaining_files: int
     remaining_bytes: int
     cleaned_at: datetime

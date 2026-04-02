@@ -58,19 +58,22 @@ def update_user_settings(
 
 @router.get("/cache/audio", response_model=schemas.AudioCacheSummary)
 def get_audio_cache_settings(
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     _ = current_user
-    return get_audio_cache_summary()
+    return get_audio_cache_summary(db)
 
 
 @router.post("/cache/audio/cleanup", response_model=schemas.AudioCacheCleanupResult)
 def cleanup_audio_cache_files(
     payload: schemas.AudioCacheCleanupRequest,
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
     _ = current_user
     return cleanup_audio_cache(
+        db,
         scope=payload.scope,
         max_age_days=payload.max_age_days,
     )

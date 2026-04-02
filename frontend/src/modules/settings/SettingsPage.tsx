@@ -13,6 +13,10 @@ interface AudioCacheSummary {
   cache_path: string;
   total_files: number;
   total_bytes: number;
+  protected_files: number;
+  protected_bytes: number;
+  cleanable_files: number;
+  cleanable_bytes: number;
   stale_files: number;
   stale_bytes: number;
   max_age_days: number;
@@ -24,6 +28,8 @@ interface AudioCacheCleanupResult {
   max_age_days: number;
   deleted_files: number;
   deleted_bytes: number;
+  protected_files: number;
+  protected_bytes: number;
   remaining_files: number;
   remaining_bytes: number;
   cleaned_at: string;
@@ -117,7 +123,7 @@ export const SettingsPage = () => {
         scope: "all",
       });
       setCacheMessage(
-        `已清理 ${res.data.deleted_files} 个发音缓存文件，释放 ${formatBytes(res.data.deleted_bytes)}。`,
+        `已清理 ${res.data.deleted_files} 个未引用缓存文件，释放 ${formatBytes(res.data.deleted_bytes)}；词书中单词的发音文件已保留。`,
       );
       await loadCacheSummary();
     } catch (err) {
@@ -186,12 +192,12 @@ export const SettingsPage = () => {
           <div className="setting-info">
             <div className="setting-label">发音缓存</div>
             <div className="setting-description">
-              发音音频缓存保存在本地目录中。系统会在服务启动时按月自动清理 30 天前的旧音频，你也可以在这里手动一键清空。
+              词书中仍在使用的发音文件会被视为正式资产并长期保留。系统会在服务启动时按月检查一次，只清理 30 天前且未被任何词书单词引用的旧音频；你也可以在这里手动清理未引用缓存。
             </div>
           </div>
           <div className="setting-control">
             <button className="secondary-btn" onClick={handleClearCache} disabled={cleaningCache}>
-              {cleaningCache ? "清理中..." : "清理缓存"}
+              {cleaningCache ? "清理中..." : "清理未引用缓存"}
             </button>
           </div>
         </div>
@@ -199,12 +205,17 @@ export const SettingsPage = () => {
         {cacheSummary && (
           <div className="cache-summary-grid">
             <div className="cache-summary-card">
-              <div className="cache-summary-label">当前缓存文件</div>
-              <div className="cache-summary-value">{cacheSummary.total_files}</div>
-              <div className="cache-summary-meta">{formatBytes(cacheSummary.total_bytes)}</div>
+              <div className="cache-summary-label">受保护发音文件</div>
+              <div className="cache-summary-value">{cacheSummary.protected_files}</div>
+              <div className="cache-summary-meta">{formatBytes(cacheSummary.protected_bytes)}</div>
             </div>
             <div className="cache-summary-card">
-              <div className="cache-summary-label">{cacheSummary.max_age_days} 天前旧缓存</div>
+              <div className="cache-summary-label">可清理未引用缓存</div>
+              <div className="cache-summary-value">{cacheSummary.cleanable_files}</div>
+              <div className="cache-summary-meta">{formatBytes(cacheSummary.cleanable_bytes)}</div>
+            </div>
+            <div className="cache-summary-card">
+              <div className="cache-summary-label">{cacheSummary.max_age_days} 天前可清理旧缓存</div>
               <div className="cache-summary-value">{cacheSummary.stale_files}</div>
               <div className="cache-summary-meta">{formatBytes(cacheSummary.stale_bytes)}</div>
             </div>
@@ -213,7 +224,11 @@ export const SettingsPage = () => {
               <div className="cache-summary-value cache-summary-small">
                 {formatDateTime(cacheSummary.last_auto_cleanup_at)}
               </div>
-              <div className="cache-summary-meta">目录：{cacheSummary.cache_path}</div>
+              <div className="cache-summary-meta">
+                总目录：{cacheSummary.cache_path}
+                <br />
+                总文件数：{cacheSummary.total_files}，总大小：{formatBytes(cacheSummary.total_bytes)}
+              </div>
             </div>
           </div>
         )}
