@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { apiClient, resolveApiUrl } from "../../shared/apiClient";
 import { VocabularyNotebook } from "../vocabulary/types";
 
@@ -67,8 +67,8 @@ interface LazyWordPopupProps {
       sentences?: SentenceItem[];
       phrases?: PhraseItem[];
       synonyms?: string[];
-    },
-  ) => void;
+    }
+  ) => Promise<void> | void;
   notebooks: VocabularyNotebook[];
   selectedNotebookId?: number;
   onNotebookChange: (id: number | "") => void;
@@ -84,7 +84,7 @@ export const LazyWordPopup = ({
   onNotebookChange,
 }: LazyWordPopupProps) => {
   const popupRef = useRef<HTMLDivElement>(null);
-  const [computedStyle, setComputedStyle] = useState<React.CSSProperties>({
+  const [computedStyle, setComputedStyle] = useState<CSSProperties>({
     left: position.x,
     top: position.y,
     visibility: "hidden",
@@ -96,40 +96,42 @@ export const LazyWordPopup = ({
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioLoadingKey, setAudioLoadingKey] = useState<string | null>(null);
   const [examplesLoading, setExamplesLoading] = useState(false);
+  const [addingWord, setAddingWord] = useState(false);
 
   useLayoutEffect(() => {
     if (!popupRef.current) return;
 
     const positionPopup = () => {
       if (!popupRef.current) return;
+
       const rect = popupRef.current.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const maxHeight = Math.min(vh - 16, 580);
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const maxHeight = Math.min(viewportHeight - 16, 580);
       const effectiveHeight = Math.min(rect.height, maxHeight);
 
       let left = position.x - rect.width / 2;
       let top: number;
 
-      const topBelow = position.y + 10;
-      const topAbove = position.y - effectiveHeight - 10;
+      const belowTop = position.y + 10;
+      const aboveTop = position.y - effectiveHeight - 10;
 
-      if (topBelow + effectiveHeight <= vh - 8) {
-        top = topBelow;
-      } else if (topAbove >= 8) {
-        top = topAbove;
+      if (belowTop + effectiveHeight <= viewportHeight - 8) {
+        top = belowTop;
+      } else if (aboveTop >= 8) {
+        top = aboveTop;
       } else {
-        top = Math.max(8, Math.min(vh - effectiveHeight - 8, position.y - effectiveHeight / 2));
-        const rightLeft = position.x + 20;
-        if (rightLeft + rect.width <= vw - 8) {
-          left = rightLeft;
+        top = Math.max(8, Math.min(viewportHeight - effectiveHeight - 8, position.y - effectiveHeight / 2));
+        const rightSideLeft = position.x + 20;
+        if (rightSideLeft + rect.width <= viewportWidth - 8) {
+          left = rightSideLeft;
         } else {
           left = position.x - rect.width - 20;
         }
       }
 
       if (left < 8) left = 8;
-      if (left + rect.width > vw - 8) left = vw - rect.width - 8;
+      if (left + rect.width > viewportWidth - 8) left = viewportWidth - rect.width - 8;
 
       setComputedStyle({
         left,
@@ -143,7 +145,7 @@ export const LazyWordPopup = ({
     positionPopup();
     window.addEventListener("resize", positionPopup);
     return () => window.removeEventListener("resize", positionPopup);
-  }, [position, loading, audioLoadingKey, examplesLoading, meaning]);
+  }, [position, loading, audioLoadingKey, examplesLoading, meaning, addingWord]);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,6 +242,7 @@ export const LazyWordPopup = ({
 
       setMeaning((prev) => {
         if (!prev) return prev;
+
         if (target === "base" && prev.base_form) {
           return {
             ...prev,
@@ -283,6 +286,12 @@ export const LazyWordPopup = ({
     const loadingThisAudio = audioLoadingKey === `${target}:${variant}`;
     if (!phonetic) return null;
 
+    const actionTitle = loadingThisAudio
+      ? `${label}式发音加载中`
+      : audioUrl
+        ? `播放${label}式发音`
+        : `点击获取${label}式发音`;
+
     return (
       <div className="phonetic-item">
         <span className="phonetic-label">{label}</span>
@@ -293,38 +302,49 @@ export const LazyWordPopup = ({
           onClick={() => loadPronunciationAudio(target, variant)}
           disabled={audioPlaying || !!audioLoadingKey}
           data-loading={loadingThisAudio ? "true" : "false"}
-          title={loadingThisAudio ? `${label}式发音加载中` : audioUrl ? `播放${label}式发音` : `点击获取${label}式发音`}
-          aria-label={loadingThisAudio ? `${label}式发音加载中` : audioUrl ? `播放${label}式发音` : `点击获取${label}式发音`}
+          title={actionTitle}
+          aria-label={actionTitle}
         >
           {loadingThisAudio && <span className="phonetic-play-spinner" aria-hidden="true" />}
-          <span className="phonetic-audio">{loadingThisAudio ? "…" : "▶"}</span>
+          <span className="phonetic-audio">{loadingThisAudio ? "..." : "▶"}</span>
         </button>
       </div>
     );
   };
 
-  const handleAddWord = () => {
-    const wordData = meaning ? {
-      phonetic: meaning.phonetic,
-      chinese_translation: meaning.chinese_translation,
-      english_definition: meaning.english_definition,
-      uk_phonetic: meaning.uk_phonetic,
-      us_phonetic: meaning.us_phonetic,
-      uk_audio: meaning.uk_audio,
-      us_audio: meaning.us_audio,
-      tags: meaning.tags,
-      collins: meaning.collins,
-      oxford: meaning.oxford,
-      bnc: meaning.bnc,
-      frq: meaning.frq,
-      meanings: meaning.meanings,
-      sentences: meaning.sentences,
-      phrases: meaning.phrases,
-      synonyms: meaning.synonyms,
-    } : undefined;
+  const handleAddWord = async () => {
+    if (addingWord) return;
 
-    onAddWord(word, selectedNotebookId, wordData);
+    const wordData = meaning
+      ? {
+          phonetic: meaning.phonetic,
+          chinese_translation: meaning.chinese_translation,
+          english_definition: meaning.english_definition,
+          uk_phonetic: meaning.uk_phonetic,
+          us_phonetic: meaning.us_phonetic,
+          uk_audio: meaning.uk_audio,
+          us_audio: meaning.us_audio,
+          tags: meaning.tags,
+          collins: meaning.collins,
+          oxford: meaning.oxford,
+          bnc: meaning.bnc,
+          frq: meaning.frq,
+          meanings: meaning.meanings,
+          sentences: meaning.sentences,
+          phrases: meaning.phrases,
+          synonyms: meaning.synonyms,
+        }
+      : undefined;
+
+    setAddingWord(true);
+    try {
+      await Promise.resolve(onAddWord(word, selectedNotebookId, wordData));
+    } finally {
+      setAddingWord(false);
+    }
   };
+
+  const collinsLevel = meaning?.collins ?? 0;
 
   return (
     <div ref={popupRef} className="word-popup" style={computedStyle}>
@@ -337,9 +357,10 @@ export const LazyWordPopup = ({
               {meaning.tags?.toefl && <span className="word-badge badge-toefl">TOEFL</span>}
               {meaning.tags?.gre && <span className="word-badge badge-gre">GRE</span>}
               {meaning.oxford && <span className="word-badge badge-oxford">Oxford</span>}
-              {(meaning.collins ?? 0) > 0 && (
-                <span className="word-badge badge-collins" title={`柯林斯 ${meaning.collins} 星`}>
-                  {"★".repeat(meaning.collins ?? 0)}{"☆".repeat(5 - (meaning.collins ?? 0))}
+              {collinsLevel > 0 && (
+                <span className="word-badge badge-collins" title={`柯林斯 ${collinsLevel} 星`}>
+                  {"★".repeat(collinsLevel)}
+                  {"☆".repeat(5 - collinsLevel)}
                 </span>
               )}
             </div>
@@ -479,6 +500,7 @@ export const LazyWordPopup = ({
               className="word-popup-notebook-select"
               value={selectedNotebookId ?? ""}
               onChange={(e) => onNotebookChange(e.target.value === "" ? "" : Number(e.target.value))}
+              disabled={addingWord}
             >
               <option value="">选择生词本</option>
               {notebooks.map((notebook) => (
@@ -487,8 +509,15 @@ export const LazyWordPopup = ({
                 </option>
               ))}
             </select>
-            <button className="primary-btn" onClick={handleAddWord} disabled={!selectedNotebookId}>
-              + 添加到生词本
+            <button
+              className="primary-btn word-popup-add-btn"
+              onClick={handleAddWord}
+              disabled={!selectedNotebookId || addingWord}
+            >
+              <span className="word-popup-add-icon" aria-hidden="true">
+                {addingWord ? <span className="word-popup-add-spinner" /> : "+"}
+              </span>
+              <span>{addingWord ? "添加中..." : "添加到生词本"}</span>
             </button>
           </>
         ) : (
