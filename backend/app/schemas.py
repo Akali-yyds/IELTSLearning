@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -220,3 +220,27 @@ class UserSettingsRead(UserSettingsBase):
 class UserSettingsUpdate(BaseModel):
     daily_review_target: Optional[int] = Field(default=None, ge=5, le=100)
 
+
+class AudioCacheSummary(BaseModel):
+    cache_path: str
+    total_files: int
+    total_bytes: int
+    stale_files: int
+    stale_bytes: int
+    max_age_days: int
+    last_auto_cleanup_at: Optional[datetime] = None
+
+
+class AudioCacheCleanupRequest(BaseModel):
+    scope: Literal["all", "expired"] = "all"
+    max_age_days: Optional[int] = Field(default=None, ge=1, le=365)
+
+
+class AudioCacheCleanupResult(BaseModel):
+    scope: Literal["all", "expired"]
+    max_age_days: int
+    deleted_files: int
+    deleted_bytes: int
+    remaining_files: int
+    remaining_bytes: int
+    cleaned_at: datetime

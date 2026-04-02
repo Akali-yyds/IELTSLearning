@@ -11,6 +11,7 @@ from . import auth, models, schemas
 from .database import Base, engine, get_db
 from .routers import articles, dictionary, reviews, dashboard, settings, vocabulary
 from .routers.translation import router as translation_router, router_translation
+from .services.cache_maintenance import run_scheduled_audio_cache_cleanup
 
 app = FastAPI(title="IELTSLearning API")
 
@@ -43,6 +44,18 @@ app.include_router(vocabulary.router)
 app.include_router(reviews.router)
 app.include_router(dashboard.router)
 app.include_router(settings.router)
+
+
+@app.on_event("startup")
+def cleanup_audio_cache_on_startup():
+    result = run_scheduled_audio_cache_cleanup()
+    if not result:
+        return
+    logger.info(
+        "Audio cache cleanup completed: deleted %s files (%s bytes)",
+        result["deleted_files"],
+        result["deleted_bytes"],
+    )
 
 
 @app.exception_handler(Exception)

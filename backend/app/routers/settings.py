@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
+from ..services.cache_maintenance import cleanup_audio_cache, get_audio_cache_summary
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -53,3 +54,23 @@ def update_user_settings(
     db.commit()
     db.refresh(settings)
     return settings
+
+
+@router.get("/cache/audio", response_model=schemas.AudioCacheSummary)
+def get_audio_cache_settings(
+    current_user: models.User = Depends(get_current_user),
+):
+    _ = current_user
+    return get_audio_cache_summary()
+
+
+@router.post("/cache/audio/cleanup", response_model=schemas.AudioCacheCleanupResult)
+def cleanup_audio_cache_files(
+    payload: schemas.AudioCacheCleanupRequest,
+    current_user: models.User = Depends(get_current_user),
+):
+    _ = current_user
+    return cleanup_audio_cache(
+        scope=payload.scope,
+        max_age_days=payload.max_age_days,
+    )

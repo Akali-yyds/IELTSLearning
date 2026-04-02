@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     piper_config_en_us: str = ""
     piper_config_en_gb: str = ""
     espeak_path: str = "espeak"
+    audio_cache_cleanup_days: int = 30
+    audio_cache_maintenance_path: str = "data/cache_maintenance.json"
 
     class Config:
         env_file = ".env"
