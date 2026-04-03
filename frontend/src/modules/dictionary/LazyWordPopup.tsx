@@ -1,3 +1,4 @@
+import axios from "axios";
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { apiClient, resolveApiUrl } from "../../shared/apiClient";
 import { VocabularyNotebook } from "../vocabulary/types";
@@ -182,9 +183,13 @@ export const LazyWordPopup = ({
           }
         }
       } catch (err) {
-        console.error(err);
         if (cancelled) return;
-        setError("无法获取释义");
+        if (axios.isAxiosError(err) && err.response?.status === 404) {
+          setError("未找到该单词的释义");
+        } else {
+          console.error(err);
+          setError("无法获取释义");
+        }
         setLoading(false);
       }
     };
@@ -204,7 +209,10 @@ export const LazyWordPopup = ({
     const audio = new Audio(resolveApiUrl(audioUrl));
     audio.onended = () => setAudioPlaying(false);
     audio.onerror = () => setAudioPlaying(false);
-    audio.play();
+    void audio.play().catch((err) => {
+      console.error(err);
+      setAudioPlaying(false);
+    });
   };
 
   const loadPronunciationAudio = async (target: PronunciationTarget, variant: PronunciationVariant) => {

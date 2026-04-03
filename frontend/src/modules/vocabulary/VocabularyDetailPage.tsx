@@ -68,7 +68,10 @@ export const VocabularyDetailPage = () => {
 
   const playAudio = (audioUrl?: string | null) => {
     if (!audioUrl) return;
-    new Audio(resolveApiUrl(audioUrl)).play();
+    const audio = new Audio(resolveApiUrl(audioUrl));
+    void audio.play().catch((err) => {
+      console.error(err);
+    });
   };
 
   // 兼容 ECDICT 旧数据：字面量 \n（反斜杠+n）→ 可读分隔符

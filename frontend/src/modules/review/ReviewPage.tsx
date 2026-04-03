@@ -117,7 +117,10 @@ export const ReviewPage = () => {
     const audio = new Audio(resolveApiUrl(audioUrl));
     audio.onended = () => setAudioPlaying(false);
     audio.onerror = () => setAudioPlaying(false);
-    audio.play();
+    void audio.play().catch((err) => {
+      console.error(err);
+      setAudioPlaying(false);
+    });
   };
 
   const handleFeedback = async (feedback: "again" | "hard" | "good" | "easy") => {

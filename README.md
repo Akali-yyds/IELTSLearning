@@ -2,6 +2,10 @@
 
 面向 IELTS / TOEFL 等英语学习场景的本地优先学习应用。项目把“翻译文章 -> 双击查词 -> 加入生词本 -> 复习巩固 -> 数据统计”串成一条完整链路，前端使用 React + Vite，后端使用 FastAPI + SQLAlchemy。
 
+## 演示视频
+
+- Bilibili: https://www.bilibili.com/video/BV19D9FBdEVP/?spm_id_from=333.1387.homepage.video_card.click&vd_source=c341905eeed943c3cfd84258750f594e
+
 ## 当前能力
 
 - 文章翻译与保存

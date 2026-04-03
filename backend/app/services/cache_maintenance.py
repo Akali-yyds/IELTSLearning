@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..config import settings
 from ..database import SessionLocal
+from .pronunciation import clear_pronunciation_cache
 from .tts import get_audio_cache_dir
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -137,6 +138,9 @@ def cleanup_audio_cache(
             deleted_bytes += size
         except OSError:
             continue
+
+    if deleted_files:
+        clear_pronunciation_cache()
 
     cleaned_at = _utc_now()
     remaining_summary = get_audio_cache_summary(db, resolved_days)

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from .lemmatizer import clean_word
+from .lemmatizer import build_lookup_candidates, clean_word
 from . import ecdict as ecdict_svc
 from .pronunciation import get_pronunciation_data
 from .tatoeba import get_example_sentences
@@ -56,10 +56,19 @@ def lookup_word_smart(
         return {"raw_word": raw_word, "normalized": normalized, "matched_word": None, "result": None}
 
     result = ecdict_svc.query_smart(normalized)
+    matched = normalized
+
+    if not result:
+        candidates_info = build_lookup_candidates(raw_word)
+        candidates = [candidate for candidate in candidates_info.get("candidates", []) if candidate != normalized]
+        result = ecdict_svc.query_candidates(candidates)
+        if result:
+            matched = result.get("matched_word", result.get("word", normalized))
+
     if not result:
         return {"raw_word": raw_word, "normalized": normalized, "matched_word": None, "result": None}
 
-    matched = result.get("matched_word", normalized)
+    matched = result.get("matched_word", matched)
     result = enrich_entry(
         result,
         word=normalized,

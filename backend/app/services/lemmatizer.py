@@ -77,6 +77,7 @@ IRREGULAR_MAP = {
     # 常见被 lemmatizer 误还原的词
     "bought": "buy",
     "caught": "catch",
+    "uncaught": "catch",
     "taught": "teach",
     " fought": "fight",
     "led": "lead",

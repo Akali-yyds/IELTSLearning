@@ -169,3 +169,7 @@ def get_pronunciation_data(word: str, lemma: str = "", include_audio: bool = Fal
         "uk_audio": audio_urls["uk_audio"],
         "us_audio": audio_urls["us_audio"],
     }
+
+
+def clear_pronunciation_cache() -> None:
+    get_pronunciation_data.cache_clear()
