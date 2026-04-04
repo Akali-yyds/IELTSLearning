@@ -1,8 +1,8 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../../shared/apiClient";
-import { VocabularyNotebook } from "../vocabulary/types";
 import { LazyWordPopup } from "../dictionary/LazyWordPopup";
+import { VocabularyNotebook } from "../vocabulary/types";
 
 interface Article {
   id?: number;
@@ -21,22 +21,25 @@ export const ArticleEditPage = () => {
   const [loadingTranslate, setLoadingTranslate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 单词释义弹窗状态
   const [selectedWord, setSelectedWord] = useState("");
   const [wordPopupPosition, setWordPopupPosition] = useState({ x: 0, y: 0 });
   const [showWordPopup, setShowWordPopup] = useState(false);
   const [notebooks, setNotebooks] = useState<VocabularyNotebook[]>([]);
   const [selectedNotebook, setSelectedNotebook] = useState<number | "">("");
-  const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: "", visible: false });
+  const [toast, setToast] = useState<{ message: string; visible: boolean }>({
+    message: "",
+    visible: false,
+  });
 
   const articleId = useMemo(() => {
     if (!id) return undefined;
-    const n = Number(id);
-    return Number.isFinite(n) ? n : undefined;
+    const parsed = Number(id);
+    return Number.isFinite(parsed) ? parsed : undefined;
   }, [id]);
 
   useEffect(() => {
     if (!id) return;
+
     const load = async () => {
       setLoading(true);
       try {
@@ -49,27 +52,29 @@ export const ArticleEditPage = () => {
         setLoading(false);
       }
     };
-    load();
+
+    void load();
   }, [id]);
 
-  // 加载生词本列表，并恢复上次选择的生词本
   useEffect(() => {
     const loadNotebooks = async () => {
       try {
         const res = await apiClient.get<VocabularyNotebook[]>("/vocabulary/notebooks");
         setNotebooks(res.data);
+
         const lastNotebookId = localStorage.getItem("lastNotebookId");
-        if (lastNotebookId) {
-          const exists = res.data.find((nb) => nb.id === parseInt(lastNotebookId));
-          if (exists) {
-            setSelectedNotebook(parseInt(lastNotebookId));
-          }
+        if (!lastNotebookId) return;
+
+        const matched = res.data.find((notebook) => notebook.id === Number(lastNotebookId));
+        if (matched) {
+          setSelectedNotebook(matched.id);
         }
       } catch (err) {
         console.error(err);
       }
     };
-    loadNotebooks();
+
+    void loadNotebooks();
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -80,13 +85,13 @@ export const ArticleEditPage = () => {
       if (isNew) {
         const res = await apiClient.post<Article>("/articles", {
           title: form.title,
-          original_text: form.original_text
+          original_text: form.original_text,
         });
         navigate(`/articles/${res.data.id}`);
       } else {
         await apiClient.put(`/articles/${id}`, {
           title: form.title,
-          original_text: form.original_text
+          original_text: form.original_text,
         });
       }
     } catch (err) {
@@ -100,6 +105,7 @@ export const ArticleEditPage = () => {
   const handleDelete = async () => {
     if (!id) return;
     if (!window.confirm("确定要删除这篇文章吗？")) return;
+
     try {
       await apiClient.delete(`/articles/${id}`);
       navigate("/articles");
@@ -114,6 +120,7 @@ export const ArticleEditPage = () => {
       alert("请先保存文章，再进行翻译。");
       return;
     }
+
     setLoadingTranslate(true);
     setError(null);
     try {
@@ -127,7 +134,6 @@ export const ArticleEditPage = () => {
     }
   };
 
-  // 处理文本选择 - 提取选中的单词
   const handleTextSelect = useCallback((e: React.MouseEvent) => {
     const selection = window.getSelection();
     if (!selection || selection.isCollapsed) {
@@ -136,35 +142,27 @@ export const ArticleEditPage = () => {
     }
 
     const text = selection.toString().trim();
-    if (text && text.length > 0 && text.length < 50 && /^[a-zA-Z]+$/.test(text)) {
+    if (text && text.length < 50 && /^[a-zA-Z]+$/.test(text)) {
       setSelectedWord(text.toLowerCase());
-      setWordPopupPosition({
-        x: e.clientX,
-        y: e.clientY,
-      });
+      setWordPopupPosition({ x: e.clientX, y: e.clientY });
       setShowWordPopup(true);
     } else {
       setShowWordPopup(false);
     }
   }, []);
 
-  // 双击处理
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const selection = window.getSelection();
     if (!selection) return;
 
     const text = selection.toString().trim();
-    if (text && text.length > 0 && text.length < 50 && /^[a-zA-Z]+$/.test(text)) {
+    if (text && text.length < 50 && /^[a-zA-Z]+$/.test(text)) {
       setSelectedWord(text.toLowerCase());
-      setWordPopupPosition({
-        x: e.clientX,
-        y: e.clientY,
-      });
+      setWordPopupPosition({ x: e.clientX, y: e.clientY });
       setShowWordPopup(true);
     }
   }, []);
 
-  // 添加生词
   const handleAddWord = async (
     word: string,
     notebookId?: number,
@@ -200,12 +198,15 @@ export const ArticleEditPage = () => {
         synonyms: wordData?.synonyms || [],
       });
 
-      const tagsStr = wordData?.tags
-        ? Object.entries(wordData.tags).filter(([, v]) => v).map(([k]) => k).join(" ")
+      const tags = wordData?.tags
+        ? Object.entries(wordData.tags)
+            .filter(([, enabled]) => enabled)
+            .map(([tag]) => tag)
+            .join(" ")
         : undefined;
 
-      await apiClient.post("/vocabulary", {
-        word: word,
+      const res = await apiClient.post("/vocabulary", {
+        word,
         lemma: word.toLowerCase(),
         notebook_id: notebookId,
         phonetic: wordData?.phonetic,
@@ -215,7 +216,7 @@ export const ArticleEditPage = () => {
         us_phonetic: wordData?.us_phonetic,
         uk_audio: wordData?.uk_audio,
         us_audio: wordData?.us_audio,
-        tags: tagsStr,
+        tags,
         collins: wordData?.collins,
         oxford: wordData?.oxford,
         bnc: wordData?.bnc,
@@ -224,9 +225,13 @@ export const ArticleEditPage = () => {
         pronunciation_url: wordData?.uk_audio || wordData?.us_audio,
         source_article_id: articleId ?? null,
       });
+
       setShowWordPopup(false);
       localStorage.setItem("lastNotebookId", String(notebookId));
-      setToast({ message: `单词 "${word}" 已添加到生词本`, visible: true });
+      setToast({
+        message: res.status === 200 ? `单词 "${word}" 已存在于生词书中` : `单词 "${word}" 已添加到生词本`,
+        visible: true,
+      });
       window.setTimeout(() => {
         setToast({ message: "", visible: false });
       }, 3000);
@@ -269,7 +274,6 @@ export const ArticleEditPage = () => {
         </div>
 
         <div className="article-split-view">
-          {/* 左侧：英文原文 */}
           <div className="article-original-panel">
             <div className="translation-header">
               <h2>英文原文</h2>
@@ -281,29 +285,22 @@ export const ArticleEditPage = () => {
               onChange={(e) => setForm({ ...form, original_text: e.target.value })}
               placeholder="在这里粘贴英文文章..."
               required
-              onMouseUp={(e) => handleTextSelect(e)}
-              onDoubleClick={(e) => handleDoubleClick(e)}
+              onMouseUp={handleTextSelect}
+              onDoubleClick={handleDoubleClick}
             />
           </div>
 
-          {/* 右侧：中文译文 */}
           <div className="article-right-panel">
             <div className="translation-header">
               <h2>中文译文</h2>
-              {form.translated_text && (
-                <span className="translation-status">已翻译</span>
-              )}
+              {form.translated_text && <span className="translation-status">已翻译</span>}
             </div>
-            <div
-              className="translation-content"
-              onMouseUp={(e) => handleTextSelect(e)}
-              onDoubleClick={(e) => handleDoubleClick(e)}
-            >
+            <div className="translation-content" onMouseUp={handleTextSelect} onDoubleClick={handleDoubleClick}>
               {form.translated_text ? (
                 form.translated_text
               ) : (
                 <div className="translation-placeholder">
-                  {id ? "点击「全文翻译」按钮获取翻译" : "保存文章后可进行翻译"}
+                  {id ? "点击“全文翻译”按钮获取译文" : "保存文章后可进行翻译"}
                 </div>
               )}
             </div>
@@ -314,18 +311,12 @@ export const ArticleEditPage = () => {
           <button type="submit" className="primary-btn" disabled={loading}>
             {loading ? "保存中..." : "保存"}
           </button>
-          <button
-            type="button"
-            className="secondary-btn"
-            onClick={handleTranslate}
-            disabled={loadingTranslate}
-          >
+          <button type="button" className="secondary-btn" onClick={handleTranslate} disabled={loadingTranslate}>
             {loadingTranslate ? "翻译中..." : "全文翻译"}
           </button>
         </div>
       </form>
 
-      {/* 单词释义弹窗 */}
       {showWordPopup && (
         <LazyWordPopup
           word={selectedWord}
@@ -337,6 +328,7 @@ export const ArticleEditPage = () => {
           onNotebookChange={setSelectedNotebook}
         />
       )}
+
       {toast.visible && <div className="toast-notification">{toast.message}</div>}
     </div>
   );

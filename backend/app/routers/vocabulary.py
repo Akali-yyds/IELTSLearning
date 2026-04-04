@@ -1,7 +1,7 @@
 import json
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -106,6 +106,7 @@ def lookup_vocabulary_pronunciation(
 @router.post("/", response_model=schemas.VocabularyRead, status_code=status.HTTP_201_CREATED)
 def add_to_vocabulary(
     payload: schemas.VocabularyCreate,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -222,6 +223,7 @@ def add_to_vocabulary(
             existing.notebook_id = payload.notebook_id
         db.commit()
         db.refresh(existing)
+        response.status_code = status.HTTP_200_OK
         return existing
 
     vocab = models.Vocabulary(

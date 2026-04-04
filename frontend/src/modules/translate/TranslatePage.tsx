@@ -233,7 +233,7 @@ export const TranslatePage = () => {
         ? Object.entries(wordData.tags).filter(([, v]) => v).map(([k]) => k).join(" ")
         : undefined;
 
-      await apiClient.post("/vocabulary", {
+      const res = await apiClient.post("/vocabulary", {
         word: word,
         lemma: word.toLowerCase(),
         notebook_id: notebookId,
@@ -255,7 +255,11 @@ export const TranslatePage = () => {
       // 保存当前选择的生词本到 localStorage
       localStorage.setItem("lastNotebookId", String(notebookId));
 
-      showToast(`单词 "${word}" 已添加到生词本`);
+      showToast(
+        res.status === 200
+          ? `单词 "${word}" 已存在于生词书中`
+          : `单词 "${word}" 已添加到生词本`
+      );
     } catch (err) {
       console.error(err);
       alert("添加生词失败");
