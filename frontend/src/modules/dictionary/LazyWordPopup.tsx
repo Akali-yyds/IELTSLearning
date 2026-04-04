@@ -108,31 +108,24 @@ export const LazyWordPopup = ({
       const rect = popupRef.current.getBoundingClientRect();
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
+      const sideGap = 20;
+      const edgeGap = 8;
       const maxHeight = Math.min(viewportHeight - 16, 580);
       const effectiveHeight = Math.min(rect.height, maxHeight);
 
-      let left = position.x - rect.width / 2;
-      let top: number;
-
-      const belowTop = position.y + 10;
-      const aboveTop = position.y - effectiveHeight - 10;
-
-      if (belowTop + effectiveHeight <= viewportHeight - 8) {
-        top = belowTop;
-      } else if (aboveTop >= 8) {
-        top = aboveTop;
-      } else {
-        top = Math.max(8, Math.min(viewportHeight - effectiveHeight - 8, position.y - effectiveHeight / 2));
-        const rightSideLeft = position.x + 20;
-        if (rightSideLeft + rect.width <= viewportWidth - 8) {
-          left = rightSideLeft;
-        } else {
-          left = position.x - rect.width - 20;
-        }
+      let left = position.x + sideGap;
+      if (left + rect.width > viewportWidth - edgeGap) {
+        left = position.x - rect.width - sideGap;
       }
 
-      if (left < 8) left = 8;
-      if (left + rect.width > viewportWidth - 8) left = viewportWidth - rect.width - 8;
+      if (left < edgeGap) {
+        left = Math.max(edgeGap, Math.min(viewportWidth - rect.width - edgeGap, position.x + sideGap));
+      }
+
+      const top = Math.max(
+        edgeGap,
+        Math.min(viewportHeight - effectiveHeight - edgeGap, position.y - effectiveHeight / 2)
+      );
 
       setComputedStyle({
         left,
